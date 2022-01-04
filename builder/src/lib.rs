@@ -6,16 +6,14 @@ use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Error, Ident, Result
 #[proc_macro_derive(Builder, attributes(builder))]
 pub fn derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    let expand = match derive_builder(input) {
-        Ok(token) => token,
-        Err(e) => e.to_compile_error(),
-    };
-    TokenStream::from(quote! {#expand})
+    match derive_builder(input) {
+        Ok(token) => TokenStream::from(token),
+        Err(err) => TokenStream::from(err.to_compile_error()),
+    }
 }
 
 fn derive_builder(input: DeriveInput) -> Result<TokenStream2> {
     use syn::{Data, DataStruct, Fields, FieldsNamed};
-    // 只考虑 Named Struct
     if let Data::Struct(DataStruct { fields: Fields::Named(FieldsNamed { named, .. }),
                                      .. }) = input.data
     {
@@ -23,10 +21,11 @@ fn derive_builder(input: DeriveInput) -> Result<TokenStream2> {
         let builder_name = format_ident!("{}Builder", input_name);
         let fields =
             named.iter()
-                 .map(|f| (f.ident.as_ref().expect("failed to get the field name"), &f.ty));
+                 .map(|f| (f.ident.as_ref().expect("field name not found"), &f.ty));
         let idents = fields.clone().map(|(ident, _)| ident);
         let builder_fields = fields.clone().map(|(i, t)| quote! {#i: ::core::option::Option<#t> });
         let new_builder = fields.clone().map(__new);
+
         let mut each_names = Vec::with_capacity(named.len());
         for field in named.iter() {
             if let Some(attr) = field.attrs.first() {
@@ -35,6 +34,7 @@ fn derive_builder(input: DeriveInput) -> Result<TokenStream2> {
                 each_names.push(None);
             }
         }
+
         let (more, impl_fns): (Vec<_>, Vec<_>) =
             fields.clone()
                   .zip(each_names)
@@ -43,7 +43,6 @@ fn derive_builder(input: DeriveInput) -> Result<TokenStream2> {
                       None => (false, impl_fn(&vis, ident, ty, None)),
                   })
                   .unzip();
-        #[rustfmt::skip]
         let impl_fns_more = fields.zip(more)
             .filter_map(|((ident, ty), m)| { if m { Some(impl_fn(&vis, ident, ty, None)) } else { None } });
 
@@ -91,7 +90,7 @@ fn impl_fn(vis: &syn::Visibility, ident: &Ident, mut ty: &Type, each_name: Optio
             }
         },
         CheckFieldType::Vec if vec_t => {
-            let each_name = each_name.expect("获取 `each` 名称时出错");
+            let each_name = each_name.expect("failed to get `each` name");
             quote! {
                 #vis fn #each_name (&mut self, #each_name : #ty) -> &mut Self {
                     self.#ident.as_mut().map(|v| v.push(#each_name));
@@ -136,19 +135,14 @@ fn check(ty: &mut &Type, vec_t: bool) -> CheckFieldType {
                     arguments: PathArguments::AngleBracketed(AngleBracketedGenericArguments { args, .. })
                 }) = segments.first()
             {
-                return match (args.len(), args.first()) {
-                    (1, Some(GenericArgument::Type(t))) => {
-                        if ident == "Option" {
-                            *ty = t;
-                            CheckFieldType::Option
-                        } else if ident == "Vec" {
-                            if vec_t { *ty = t; }
-                            CheckFieldType::Vec
-                        } else {
-                            CheckFieldType::Raw
-                        }
-                    },
-                    _ => CheckFieldType::Raw
+                if let (1, Some(GenericArgument::Type(t))) = (args.len(), args.first()) {
+                    if ident == "Option" {
+                        *ty = t;
+                        return CheckFieldType::Option;
+                    } else if ident == "Vec" {
+                        if vec_t { *ty = t; }
+                        return CheckFieldType::Vec;
+                    }
                 }
             }
         }
