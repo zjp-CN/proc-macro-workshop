@@ -25,10 +25,16 @@ fn custom_debug(mut input: DeriveInput) -> Result<TokenStream2> {
                                     .map(|(i, a)| attr_debug(a, i).map(|t| t.unwrap_or(quote! {&self.#i})))
                                     .collect::<Result<Vec<_>>>()?;
 
+        let mut generics_associated = Vec::with_capacity(8);
         generics.type_params_mut()
-                .map(|g| generics_add_debug(g, named.iter().map(|f| &f.ty)))
+                .map(|g| generics_add_debug(g, named.iter().map(|f| &f.ty), &mut generics_associated))
                 .last();
         let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+        let where_clause =
+            where_clause.cloned()
+                        .map(|wh| add_asscociated_bound(wh, &generics_associated))
+                        .unwrap_or(syn::parse_quote! { where #(#generics_associated: ::std::fmt::Debug),* });
+        let where_clause = Some(where_clause);
 
         Ok(quote! {
             impl #impl_generics ::std::fmt::Debug for #ident #ty_generics #where_clause {
@@ -44,6 +50,12 @@ fn custom_debug(mut input: DeriveInput) -> Result<TokenStream2> {
     } else {
         Err(Error::new(input.span(), "Named Struct Only :)"))
     }
+}
+
+fn add_asscociated_bound(mut wh: syn::WhereClause, generics_associated: &[Type]) -> syn::WhereClause {
+    fn convert(ty: &Type) -> syn::WherePredicate { syn::parse_quote!(#ty: ::std::fmt::Debug) }
+    wh.predicates.extend(generics_associated.iter().map(convert));
+    wh
 }
 
 fn attr_debug(attrs: &[syn::Attribute], ident: &Ident) -> Result<Option<TokenStream2>> {
@@ -63,12 +75,48 @@ fn attr_debug(attrs: &[syn::Attribute], ident: &Ident) -> Result<Option<TokenStr
     }
 }
 
-fn generics_add_debug<'g>(ty: &mut syn::TypeParam, mut field_ty: impl Iterator<Item = &'g Type>) {
+fn generics_add_debug<'g>(ty: &mut syn::TypeParam, mut field_ty: impl Iterator<Item = &'g Type>,
+                          associated: &mut Vec<Type>) {
     use syn::{parse_quote, TypeParam};
-    let TypeParam { ident, bounds, .. } = ty;
+    let TypeParam { ref ident, bounds, .. } = ty;
     let phantom_data: Type = parse_quote!(PhantomData<#ident>);
     // do not add Debug trait constrain when the generics T is PhantomData<T>
-    if !field_ty.any(|t| t == &phantom_data) {
+    #[rustfmt::skip]
+    let closure = |t: &Type| { generics_search(t, ident, associated) || t == &phantom_data };
+    if !field_ty.any(closure) {
         bounds.push(parse_quote!(::std::fmt::Debug));
     }
+}
+
+fn generics_search(ty: &Type, ident: &Ident, associated: &mut Vec<Type>) -> bool {
+    use syn::{AngleBracketedGenericArguments, GenericArgument, Path, PathArguments, PathSegment, TypePath};
+    fn check_associated(ty: &Type, ident: &Ident, associated: &mut Vec<Type>) -> bool {
+        if let Type::Path(TypePath { path: Path { segments, leading_colon: None }, .. }) = ty {
+            if segments.len() > 1 && segments.first().map(|seg| &seg.ident == ident).unwrap_or(false) {
+                associated.push(ty.clone());
+                return true;
+            }
+        }
+        false
+    }
+    fn check_angle_bracket_associated(ty: &Type, ident: &Ident, associated: &mut Vec<Type>) -> bool {
+        #[rustfmt::skip]
+        fn check(seg: &PathSegment, ident: &Ident, associated: &mut Vec<Type>) -> bool {
+            if let PathArguments::AngleBracketed(AngleBracketedGenericArguments { args, .. }) = &seg.arguments
+            {
+                args.iter().any(|arg| if let GenericArgument::Type(t) = arg
+                                 { check_associated(t, ident, associated) } else { false } )
+            } else {
+                false
+            }
+        }
+        if let Type::Path(TypePath { path: Path { segments, leading_colon: None }, .. }) = ty {
+            if segments.iter().any(|seg| check(seg, ident, associated)) {
+                associated.push(ty.clone());
+                return true;
+            }
+        }
+        false
+    }
+    check_associated(ty, ident, associated) || check_angle_bracket_associated(ty, ident, associated)
 }
