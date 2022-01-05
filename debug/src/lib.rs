@@ -1,10 +1,7 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::{
-    parse_macro_input, spanned::Spanned, Data, DataStruct, DeriveInput, Error, Fields, FieldsNamed, Ident,
-    Lit, Meta, MetaNameValue, Result, TypeParam,
-};
+use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Error, Ident, Result, Type};
 
 #[proc_macro_derive(CustomDebug, attributes(debug))]
 pub fn derive(input: TokenStream) -> TokenStream {
@@ -17,6 +14,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
 }
 
 fn custom_debug(mut input: DeriveInput) -> Result<TokenStream2> {
+    use syn::{Data, DataStruct, Fields, FieldsNamed};
     if let Data::Struct(DataStruct { fields: Fields::Named(FieldsNamed { named, .. }), .. }) = &input.data {
         let (ident, generics) = (&input.ident, &mut input.generics);
         let ident_str = ident.to_string();
@@ -27,7 +25,9 @@ fn custom_debug(mut input: DeriveInput) -> Result<TokenStream2> {
                                     .map(|(i, a)| attr_debug(a, i).map(|t| t.unwrap_or(quote! {&self.#i})))
                                     .collect::<Result<Vec<_>>>()?;
 
-        generics.type_params_mut().map(generic_add_debug).last();
+        generics.type_params_mut()
+                .map(|g| generics_add_debug(g, named.iter().map(|f| &f.ty)))
+                .last();
         let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
         Ok(quote! {
@@ -47,7 +47,8 @@ fn custom_debug(mut input: DeriveInput) -> Result<TokenStream2> {
 }
 
 fn attr_debug(attrs: &[syn::Attribute], ident: &Ident) -> Result<Option<TokenStream2>> {
-    fn debug(attr: &syn::Attribute) -> Option<Result<syn::LitStr>> {
+    use syn::{Lit, LitStr, Meta, MetaNameValue};
+    fn debug(attr: &syn::Attribute) -> Option<Result<LitStr>> {
         match attr.parse_meta() {
             Ok(Meta::NameValue(MetaNameValue { path, lit: Lit::Str(s), .. })) if path.is_ident("debug") => {
                 Some(Ok(s))
@@ -62,7 +63,12 @@ fn attr_debug(attrs: &[syn::Attribute], ident: &Ident) -> Result<Option<TokenStr
     }
 }
 
-fn generic_add_debug(ty: &mut TypeParam) {
-    let TypeParam { bounds, .. } = ty;
-    bounds.push(syn::parse_quote!(::std::fmt::Debug));
+fn generics_add_debug<'g>(ty: &mut syn::TypeParam, mut field_ty: impl Iterator<Item = &'g Type>) {
+    use syn::{parse_quote, TypeParam};
+    let TypeParam { ident, bounds, .. } = ty;
+    let phantom_data: Type = parse_quote!(PhantomData<#ident>);
+    // do not add Debug trait constrain when the generics T is PhantomData<T>
+    if !field_ty.any(|t| t == &phantom_data) {
+        bounds.push(parse_quote!(::std::fmt::Debug));
+    }
 }
