@@ -1,7 +1,8 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Error, Ident, Result, Type};
+use std::collections::HashSet;
+use syn::{parse_macro_input, parse_quote, spanned::Spanned, DeriveInput, Error, Ident, Result, Type};
 
 #[proc_macro_derive(CustomDebug, attributes(debug))]
 pub fn derive(input: TokenStream) -> TokenStream {
@@ -25,16 +26,28 @@ fn custom_debug(mut input: DeriveInput) -> Result<TokenStream2> {
                                     .map(|(i, a)| attr_debug(a, i).map(|t| t.unwrap_or(quote! {&self.#i})))
                                     .collect::<Result<Vec<_>>>()?;
 
-        let mut generics_associated = Vec::with_capacity(8);
+        let mut generics_associated = HashSet::with_capacity(8);
         generics.type_params_mut()
                 .map(|g| generics_add_debug(g, named.iter().map(|f| &f.ty), &mut generics_associated))
                 .last();
         let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-        let where_clause =
-            where_clause.cloned()
-                        .map(|wh| add_asscociated_bound(wh, &generics_associated))
-                        .unwrap_or(syn::parse_quote! { where #(#generics_associated: ::std::fmt::Debug),* });
-        let where_clause = Some(where_clause);
+
+        let where_clause = where_clause.cloned();
+        #[rustfmt::skip]
+        let where_clause = if generics_associated.is_empty() {
+            where_clause
+        } else {
+            let iter = generics_associated.iter();
+            Some(where_clause
+                 .map(|mut wh| {
+                     wh.predicates.extend(iter.clone().map(|ty| {
+                         let w: syn::WherePredicate = parse_quote!(#ty: ::std::fmt::Debug);
+                         w 
+                     }));
+                     wh 
+                 })
+                 .unwrap_or(parse_quote! { where #(#iter: ::std::fmt::Debug),* }))
+        };
 
         Ok(quote! {
             impl #impl_generics ::std::fmt::Debug for #ident #ty_generics #where_clause {
@@ -52,12 +65,6 @@ fn custom_debug(mut input: DeriveInput) -> Result<TokenStream2> {
     }
 }
 
-fn add_asscociated_bound(mut wh: syn::WhereClause, generics_associated: &[Type]) -> syn::WhereClause {
-    fn convert(ty: &Type) -> syn::WherePredicate { syn::parse_quote!(#ty: ::std::fmt::Debug) }
-    wh.predicates.extend(generics_associated.iter().map(convert));
-    wh
-}
-
 fn attr_debug(attrs: &[syn::Attribute], ident: &Ident) -> Result<Option<TokenStream2>> {
     use syn::{Lit, LitStr, Meta, MetaNameValue};
     fn debug(attr: &syn::Attribute) -> Option<Result<LitStr>> {
@@ -70,53 +77,62 @@ fn attr_debug(attrs: &[syn::Attribute], ident: &Ident) -> Result<Option<TokenStr
     }
     match attrs.iter().find_map(debug) {
         None => Ok(None),
-        Some(Ok(fmt)) => Ok(Some(quote! {&::std::format_args!(#fmt, self.#ident)})),
+        Some(Ok(fmt)) => Ok(Some(quote! { &::std::format_args!(#fmt, self.#ident) })),
         Some(Err(err)) => Err(err),
     }
 }
 
-fn generics_add_debug<'g>(ty: &mut syn::TypeParam, mut field_ty: impl Iterator<Item = &'g Type>,
-                          associated: &mut Vec<Type>) {
-    use syn::{parse_quote, TypeParam};
-    let TypeParam { ref ident, bounds, .. } = ty;
+fn generics_add_debug<'f>(ty: &mut syn::TypeParam, field_ty: impl Iterator<Item = &'f Type>,
+                          associated: &mut HashSet<&'f Type>) {
+    let syn::TypeParam { ref ident, bounds, .. } = ty;
     let phantom_data: Type = parse_quote!(PhantomData<#ident>);
-    // do not add Debug trait constrain when the generics T is PhantomData<T>
-    #[rustfmt::skip]
-    let closure = |t: &Type| { generics_search(t, ident, associated) || t == &phantom_data };
-    if !field_ty.any(closure) {
+    // do not add Debug trait constrain
+    // when the generics T contains associated types or T is PhantomData<T>
+    if !field_ty.fold(false, |acc, t| generics_search(t, ident, associated) || t == &phantom_data || acc) {
         bounds.push(parse_quote!(::std::fmt::Debug));
     }
 }
 
-fn generics_search(ty: &Type, ident: &Ident, associated: &mut Vec<Type>) -> bool {
-    use syn::{AngleBracketedGenericArguments, GenericArgument, Path, PathArguments, PathSegment, TypePath};
-    fn check_associated(ty: &Type, ident: &Ident, associated: &mut Vec<Type>) -> bool {
+// 处理字段类型的关联类型
+fn generics_search<'f>(ty: &'f Type, ident: &Ident, associated: &mut HashSet<&'f Type>) -> bool {
+    use syn::{AngleBracketedGenericArguments, GenericArgument, Path, PathArguments, TypePath};
+
+    // 把 T::Associated 添加到 where 语句增加项
+    fn check_associated<'f>(ty: &'f Type, ident: &Ident, associated: &mut HashSet<&'f Type>) -> bool {
         if let Type::Path(TypePath { path: Path { segments, leading_colon: None }, .. }) = ty {
             if segments.len() > 1 && segments.first().map(|seg| &seg.ident == ident).unwrap_or(false) {
-                associated.push(ty.clone());
+                associated.insert(ty);
                 return true;
             }
         }
         false
     }
-    fn check_angle_bracket_associated(ty: &Type, ident: &Ident, associated: &mut Vec<Type>) -> bool {
-        #[rustfmt::skip]
-        fn check(seg: &PathSegment, ident: &Ident, associated: &mut Vec<Type>) -> bool {
-            if let PathArguments::AngleBracketed(AngleBracketedGenericArguments { args, .. }) = &seg.arguments
-            {
-                args.iter().any(|arg| if let GenericArgument::Type(t) = arg
-                                 { check_associated(t, ident, associated) } else { false } )
+
+    // 一层尖括号泛型中的关联类型 path::<T::Associated>
+    fn check_angle_bracket_associated<'f>(ty: &'f Type, ident: &Ident, associated: &mut HashSet<&'f Type>)
+                                          -> bool {
+        // 检查尖括号内的泛型是否为关联类型
+        fn check<'f>(arg: &'f PathArguments, ident: &Ident, associated: &mut HashSet<&'f Type>) -> bool {
+            if let PathArguments::AngleBracketed(AngleBracketedGenericArguments { args, .. }) = arg {
+                args.iter().fold(false, |acc, arg| {
+                               if let GenericArgument::Type(t) = arg {
+                                   check_associated(t, ident, associated) || acc
+                               } else {
+                                   acc
+                               }
+                           })
             } else {
                 false
             }
         }
-        if let Type::Path(TypePath { path: Path { segments, leading_colon: None }, .. }) = ty {
-            if segments.iter().any(|seg| check(seg, ident, associated)) {
-                associated.push(ty.clone());
-                return true;
-            }
+        if let Type::Path(TypePath { path: Path { segments, .. }, .. }) = ty {
+            // 只考虑最后路径上的泛型，即 a::b::c::<T, I::Item, ...> 形式
+            return segments.last()
+                           .map(|seg| check(&seg.arguments, ident, associated))
+                           .unwrap_or(false);
         }
         false
     }
+
     check_associated(ty, ident, associated) || check_angle_bracket_associated(ty, ident, associated)
 }
