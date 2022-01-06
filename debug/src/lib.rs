@@ -14,40 +14,33 @@ pub fn derive(input: TokenStream) -> TokenStream {
     })
 }
 
+mod bound;
+
 fn custom_debug(mut input: DeriveInput) -> Result<TokenStream2> {
     use syn::{Data, DataStruct, Fields, FieldsNamed};
     if let Data::Struct(DataStruct { fields: Fields::Named(FieldsNamed { named, .. }), .. }) = &input.data {
         let (ident, generics) = (&input.ident, &mut input.generics);
+        
+        // 构造 fmt 方法内部的标记
         let ident_str = ident.to_string();
         let field_idents = named.iter().map(|f| f.ident.as_ref().unwrap());
         let field_idents_str = field_idents.clone().map(|i| i.to_string());
-
         let field_rhs = field_idents.zip(named.iter().map(|f| f.attrs.as_slice()))
                                     .map(|(i, a)| attr_debug(a, i).map(|t| t.unwrap_or(quote! {&self.#i})))
                                     .collect::<Result<Vec<_>>>()?;
 
-        let mut generics_associated = HashSet::with_capacity(8);
+        // 在某些泛型关联类型的情况下，放宽 T: Debug 约束
+        let mut associated = HashSet::with_capacity(8);
+        let (mut bound_where_clause, bound_generics) = bound::attr_bound(&input.attrs).unwrap_or_default();
         generics.type_params_mut()
-                .map(|g| generics_add_debug(g, named.iter().map(|f| &f.ty), &mut generics_associated))
+                .map(|g| generics_add_debug(g, named.iter().map(|f| &f.ty), &mut associated, &bound_generics))
                 .last();
         let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
-        let where_clause = where_clause.cloned();
-        #[rustfmt::skip]
-        let where_clause = if generics_associated.is_empty() {
-            where_clause
-        } else {
-            let iter = generics_associated.iter();
-            Some(where_clause
-                 .map(|mut wh| {
-                     wh.predicates.extend(iter.clone().map(|ty| {
-                         let w: syn::WherePredicate = parse_quote!(#ty: ::std::fmt::Debug);
-                         w 
-                     }));
-                     wh 
-                 })
-                 .unwrap_or(parse_quote! { where #(#iter: ::std::fmt::Debug),* }))
-        };
+        let mut where_clause = where_clause.cloned().unwrap_or_else(|| parse_quote! { where });
+        let convert = |ty: &Type| -> syn::WherePredicate { parse_quote!(#ty: ::std::fmt::Debug) };
+        bound_where_clause.extend(associated.into_iter().map(convert));
+        where_clause.predicates.extend(bound_where_clause);
 
         Ok(quote! {
             impl #impl_generics ::std::fmt::Debug for #ident #ty_generics #where_clause {
@@ -83,12 +76,16 @@ fn attr_debug(attrs: &[syn::Attribute], ident: &Ident) -> Result<Option<TokenStr
 }
 
 fn generics_add_debug<'f>(ty: &mut syn::TypeParam, field_ty: impl Iterator<Item = &'f Type>,
-                          associated: &mut HashSet<&'f Type>) {
+                          associated: &mut HashSet<&'f Type>, bound: &HashSet<Ident>) {
     let syn::TypeParam { ref ident, bounds, .. } = ty;
     let phantom_data: Type = parse_quote!(PhantomData<#ident>);
     // do not add Debug trait constrain
-    // when the generics T contains associated types or T is PhantomData<T>
-    if !field_ty.fold(false, |acc, t| generics_search(t, ident, associated) || t == &phantom_data || acc) {
+    // when the generics T contains associated types or T is PhantomData<T> or
+    // `T::Associated: Debug` is in bound
+    if !field_ty.fold(bound.contains(ident), |acc, t| {
+                    generics_search(t, ident, associated) || t == &phantom_data || acc
+                })
+    {
         bounds.push(parse_quote!(::std::fmt::Debug));
     }
 }
