@@ -1,7 +1,7 @@
 use syn::{punctuated::Punctuated, token::Comma, Attribute, Ident, LitStr, Meta, Result, WherePredicate};
 
-pub type PunctPreds = Punctuated<WherePredicate, Comma>;
-pub type PredsIdent = (PunctPreds, std::collections::HashSet<Ident>);
+type PunctPreds = Punctuated<WherePredicate, Comma>;
+type PredsIdent = (PunctPreds, std::collections::HashSet<Ident>);
 pub type OptPredsIdent = Option<PredsIdent>;
 
 pub fn struct_attr(attrs: &[Attribute]) -> OptPredsIdent {
