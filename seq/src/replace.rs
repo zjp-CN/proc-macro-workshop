@@ -42,24 +42,31 @@ type Search<'c> = Option<(bool, Cursor<'c>)>;
 // 查找某个标识符 i 之后是否跟 `~ident`，如果返回：
 // - Some((true, cur)) 表示找到
 // - Some((false, cur)) 表示未找到，且把捕获的标记添加到 ts
-// - None 表示标记流结束，或者 ** i 与此宏功能无关**
+// - None 在 search_ident 函数中表示标记流结束；
+//        在 search_tidle_ident 函数中表示 **i 与此宏功能无关**，或者标记流结束
 fn search_tidle_ident<'c>(i: TT, cursor: Cursor<'c>, ident: &Ident, lit: usize, ts: &mut Vec<TT>)
                           -> Search<'c> {
     fn search_ident<'c>(i: TT, tidle: TT, cursor: Cursor<'c>, ident: &Ident, lit: usize, ts: &mut Vec<TT>)
                         -> Search<'c> {
-        // cursor.token_tree().map(|(token, cur)| match dbg!(&token) {
-        cursor.token_tree().map(|(token, cur)| match &token {
-                               TT::Ident(id) if id == ident => (true, cur),
-                               TT::Group(g) => {
-                                   ts.extend([i, tidle]);
-                                   match_group(g, ts, ident, lit);
-                                   (false, cur)
-                               }
-                               _ => {
-                                   ts.extend([i, tidle, token]);
-                                   (false, cur)
-                               }
-                           })
+        if let Some((token, cur)) = cursor.token_tree() {
+            // match dbg!(&token)
+            match &token {
+                TT::Ident(id) if id == ident => Some((true, cur)),
+                TT::Group(g) => {
+                    ts.extend([i, tidle]);
+                    match_group(g, ts, ident, lit);
+                    Some((false, cur))
+                }
+                _ => {
+                    ts.extend([i, tidle, token]);
+                    Some((false, cur))
+                }
+            }
+        } else {
+            // 虽然几乎不会遇到 `i~` 结尾的标记，但是还是需要考虑
+            ts.extend([i, tidle]);
+            Some((false, cursor))
+        }
     }
     // cursor.token_tree().and_then(|(token, cur)| match dbg!(&token) {
     cursor.token_tree().and_then(|(token, cur)| match &token {
