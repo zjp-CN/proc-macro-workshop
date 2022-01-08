@@ -5,6 +5,7 @@ fn tests() {
     t.pass("tests/02-parse-body.rs");
     t.compile_fail("tests/03-expand-four-errors.rs");
     t.pass("tests/04-paste-ident.rs");
+    t.pass("tests/04-paste-ident2.rs");
     // t.pass("tests/05-repeat-section.rs");
     // t.pass("tests/06-init-array.rs");
     // t.pass("tests/07-inclusive-range.rs");

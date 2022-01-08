@@ -41,53 +41,9 @@ impl Seq {
         let buffer = TokenBuffer::new2(tokens);
         let cursor = buffer.begin();
         let range = lhs.base10_parse::<usize>().unwrap()..rhs.base10_parse::<usize>().unwrap();
-        let tokens: Vec<TokenStream2> = range.map(|lit| replace(cursor, &ident, lit)).collect();
+        let tokens: Vec<TokenStream2> = range.map(|lit| replace::replace(cursor, &ident, lit)).collect();
         quote! { #(#tokens)* }
     }
 }
 
-// 将所有 ident 替换成字面值、`prefix~ident` 替换成 `prefix字面值`
-fn replace(mut cursor: syn::buffer::Cursor, ident: &Ident, lit: usize) -> TokenStream2 {
-    fn reset(prefix: &mut Option<Ident>, tidle: &mut bool) {
-        *prefix = None;
-        *tidle = false;
-    }
-    let (mut ts, mut prefix, mut tidle) = (Vec::with_capacity(128), None, false);
-    while let Some((token, cur)) = cursor.token_tree() {
-        cursor = cur;
-        match token {
-            TokenTree::Ident(i) => {
-                let matched = &i == ident;
-                if tidle && matched {
-                    if let (Some(id), [.., last]) = (prefix.take(), &mut ts[..]) {
-                        *last = quote::format_ident!("{}{}", id, lit).into();
-                    } else {
-                        ts.push(i.into());
-                    }
-                } else if matched {
-                    prefix = None;
-                    ts.push(Literal::usize_unsuffixed(lit).into());
-                } else {
-                    prefix = Some(i.clone());
-                    ts.push(i.into());
-                }
-                tidle = false;
-            }
-            TokenTree::Group(g) => {
-                reset(&mut prefix, &mut tidle);
-                let buf = syn::buffer::TokenBuffer::new2(g.stream());
-                let mut group = Group::new(g.delimiter(), replace(buf.begin(), ident, lit));
-                group.set_span(g.span());
-                ts.push(group.into());
-            }
-            TokenTree::Punct(p) if p.as_char() == '~' => {
-                tidle = true;
-            }
-            t => {
-                reset(&mut prefix, &mut tidle);
-                ts.push(t);
-            }
-        }
-    }
-    TokenStream2::from_iter(ts)
-}
+mod replace;
