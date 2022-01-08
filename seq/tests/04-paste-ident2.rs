@@ -23,9 +23,16 @@ use seq::seq;
 
 seq!(N in 1..4 {
     fn f~N () -> u64 {
-        let _ = N;
+        use std::collections::HashSet;
+        let _: HashSet<_> = [N; N].into();
         N * 2
     }
+});
+
+const fn g(n: u64) -> u64 { n }
+
+seq!(N in 1..4 {
+    const C~N: u64 = g(N);
 });
 
 // This f0 is written separately to detect whether your macro correctly starts
@@ -39,4 +46,8 @@ fn main() {
     let sum = f0() + f1() + f2() + f3();
 
     assert_eq!(sum, 100 + 2 + 4 + 6);
+
+    assert_eq!(C1, 1);
+    assert_eq!(C2, 2);
+    assert_eq!(C3, 3);
 }
