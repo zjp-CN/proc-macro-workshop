@@ -31,10 +31,8 @@ pub fn replace(mut cursor: Cursor, ident: &Ident, lit: usize) -> TokenStream2 {
 }
 
 fn match_group(g: &Group, ts: &mut Vec<TT>, ident: &Ident, lit: usize) {
-    let buf = syn::buffer::TokenBuffer::new2(g.stream());
-    let mut group = Group::new(g.delimiter(), replace(buf.begin(), ident, lit));
-    group.set_span(g.span());
-    ts.push(group.into());
+    let tokens = replace(syn::buffer::TokenBuffer::new2(g.stream()).begin(), ident, lit);
+    ts.push(crate::new_group(g, tokens).into());
 }
 
 type Search<'c> = Option<(bool, Cursor<'c>)>;

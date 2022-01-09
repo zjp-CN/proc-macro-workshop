@@ -77,31 +77,28 @@ impl<'c, 'i> SeqToken<'c, 'i> {
     }
 
     fn search_group(&mut self, cur_group: Cursor<'c>) -> bool {
-        fn check_star(c_star: Cursor) -> Option<Cursor> {
-            match c_star.token_tree() {
-                Some((token, c_next)) if matches!(&token, TT::Punct(p) if p.as_char() == '*') => Some(c_next),
-                _ => None,
-            }
-        }
         if let Some((TT::Group(g), c_star)) = cur_group.token_tree() {
-            if let Some(c_next) = check_star(c_star) {
-                self.repeat_and_replace(TokenBuffer::new2(g.stream()).begin());
-                self.cursor = c_next;
-                return true;
+            match c_star.token_tree() {
+                Some((token, c_next)) if matches!(&token, TT::Punct(p) if p.as_char() == '*') => {
+                    self.repeat_and_replace(TokenBuffer::new2(g.stream()).begin());
+                    self.cursor = c_next;
+                    return true;
+                }
+                _ => (),
             }
         }
         false
     }
 
+    // 替换后的新标记
     fn output(mut self) -> TokenStream2 {
         self.search_and_replace();
         TokenStream2::from_iter(self.output)
     }
 
+    // 替换后的新标记（只针对 Group）
     fn group(g: Group, ident: &'i Ident, range: Range) -> TokenStream2 {
-        let output = SeqToken::new(TokenBuffer::new2(g.stream()).begin(), ident, range).output();
-        let mut group = Group::new(g.delimiter(), output);
-        group.set_span(g.span());
-        TokenStream2::from(TT::Group(group))
+        let ts = SeqToken::new(TokenBuffer::new2(g.stream()).begin(), ident, range).output();
+        TokenStream2::from(TT::Group(crate::new_group(&g, ts)))
     }
 }

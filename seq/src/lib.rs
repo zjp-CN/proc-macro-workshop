@@ -46,3 +46,10 @@ impl Seq {
 
 mod repeat;
 mod replace;
+
+// 把 Group 内的 TokenStream 替换掉（保留 delimiter 和 span）
+fn new_group(g: &Group, ts: TokenStream2) -> Group {
+    let mut group = Group::new(g.delimiter(), ts);
+    group.set_span(g.span());
+    group
+}
