@@ -8,7 +8,7 @@ use syn::{parse::Parse, LitInt, Token};
 #[proc_macro]
 pub fn seq(input: TokenStream) -> TokenStream {
     let seq = syn::parse_macro_input!(input as Seq);
-    TokenStream::from(seq.expan())
+    TokenStream::from(seq.expand())
 }
 
 struct Seq {
@@ -37,7 +37,7 @@ impl Parse for Seq {
 }
 
 impl Seq {
-    fn expan(self) -> TokenStream2 {
+    fn expand(self) -> TokenStream2 {
         let Seq { ident, lhs, rhs, tokens, eq_token, .. } = self;
         let buffer = syn::buffer::TokenBuffer::new2(tokens);
         let cursor = buffer.begin();
