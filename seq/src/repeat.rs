@@ -3,25 +3,31 @@ use quote::quote;
 use syn::buffer::{Cursor, TokenBuffer};
 
 // 区分是否需要重复
-pub struct SeqToken<'c, 'i, 't> {
+pub struct SeqToken<'c, 'i> {
     output: Vec<TokenStream2>,
     cursor: Cursor<'c>,
-    raw:    Cursor<'c>,
     range:  Range,
     ident:  &'i Ident,
-    count:  &'t mut u8,
 }
 
 type Range = std::ops::Range<usize>;
 
-impl<'c, 'i, 't> SeqToken<'c, 'i, 't> {
-    pub fn new(cursor: Cursor<'c>, ident: &'i Ident, range: Range, count: &'t mut u8) -> Self {
+impl<'c, 'i> SeqToken<'c, 'i> {
+    pub fn new(cursor: Cursor<'c>, ident: &'i Ident, range: Range) -> Self {
         SeqToken { output: Vec::with_capacity(32),
                    cursor,
-                   raw: cursor,
                    range,
-                   ident,
-                   count }
+                   ident }
+    }
+
+    // 如果存在 `#()*`，则不重复整个块
+    pub fn token_stream(mut self) -> TokenStream2 {
+        if self.is_repeat() {
+            self.search_and_replace();
+        } else {
+            self.repeat_and_replace(self.cursor);
+        }
+        TokenStream2::from_iter(self.output)
     }
 
     fn repeat_and_replace(&mut self, cursor: Cursor) {
@@ -29,21 +35,42 @@ impl<'c, 'i, 't> SeqToken<'c, 'i, 't> {
         self.output.push(quote! { #(#iter)* });
     }
 
-    pub fn search_repeat(&mut self) {
-        while let Some((token, cur)) = self.cursor.token_tree() {
-            self.cursor = cur;
-            // dbg!(&self.output);
-            // match dbg!(token) {
+    // 查找是否存在 `#()*`
+    fn is_repeat(&self) -> bool {
+        let mut cursor = self.cursor;
+        while let Some((token, cur)) = cursor.token_tree() {
             match token {
                 TT::Punct(p) if p.as_char() == '#' => {
-                    // if !dbg!(self.search_group(cur)) {
+                    if let Some((TT::Group(_), c_star)) = cur.token_tree() {
+                        match c_star.punct() {
+                            Some((p, _)) if p.as_char() == '*' => return true,
+                            _ => (),
+                        }
+                    }
+                }
+                TT::Group(g) => {
+                    if SeqToken::new(TokenBuffer::new2(g.stream()).begin(),
+                                              self.ident,
+                                              self.range.clone()).is_repeat() { return true; }
+                }
+                _ => (),
+            }
+            cursor = cur;
+        }
+        false
+    }
+
+    // 查找并替换 `#()*`
+    fn search_and_replace(&mut self) {
+        while let Some((token, cur)) = self.cursor.token_tree() {
+            self.cursor = cur;
+            match token {
+                TT::Punct(p) if p.as_char() == '#' => {
                     if !self.search_group(cur) {
                         self.output.push(TokenStream2::from(TT::Punct(p)));
                     }
                 }
-                TT::Group(g) => {
-                    self.output.push(SeqToken::group(g, self.ident, self.range.clone(), self.count))
-                }
+                TT::Group(g) => self.output.push(SeqToken::group(g, self.ident, self.range.clone())),
                 t => self.output.push(t.into()),
             }
         }
@@ -60,8 +87,6 @@ impl<'c, 'i, 't> SeqToken<'c, 'i, 't> {
             if let Some(c_next) = check_star(c_star) {
                 self.repeat_and_replace(TokenBuffer::new2(g.stream()).begin());
                 self.cursor = c_next;
-                *self.count += 1;
-                // dbg!(&self.output);
                 return true;
             }
         }
@@ -69,23 +94,12 @@ impl<'c, 'i, 't> SeqToken<'c, 'i, 't> {
     }
 
     fn output(mut self) -> TokenStream2 {
-        self.search_repeat();
+        self.search_and_replace();
         TokenStream2::from_iter(self.output)
     }
 
-    // 如果存在 `#()*`，则不重复整个块
-    pub fn token_stream(mut self) -> TokenStream2 {
-        self.search_repeat();
-        if *self.count == 0 {
-            // dbg!(&self.output, self.count);
-            self.output.clear();
-            self.repeat_and_replace(self.raw);
-        }
-        TokenStream2::from_iter(self.output)
-    }
-
-    fn group(g: Group, ident: &'i Ident, range: Range, count: &'t mut u8) -> TokenStream2 {
-        let output = SeqToken::new(TokenBuffer::new2(g.stream()).begin(), ident, range, count).output();
+    fn group(g: Group, ident: &'i Ident, range: Range) -> TokenStream2 {
+        let output = SeqToken::new(TokenBuffer::new2(g.stream()).begin(), ident, range).output();
         let mut group = Group::new(g.delimiter(), output);
         group.set_span(g.span());
         TokenStream2::from(TT::Group(group))

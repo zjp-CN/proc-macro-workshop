@@ -40,8 +40,7 @@ impl Seq {
         let buffer = syn::buffer::TokenBuffer::new2(tokens);
         let cursor = buffer.begin();
         let range = lhs.base10_parse::<usize>().unwrap()..rhs.base10_parse::<usize>().unwrap();
-        let mut count = 0;
-        repeat::SeqToken::new(cursor, &ident, range, &mut count).token_stream()
+        repeat::SeqToken::new(cursor, &ident, range).token_stream()
     }
 }
 
