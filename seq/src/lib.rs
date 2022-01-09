@@ -16,6 +16,7 @@ struct Seq {
     in_token:    Token![in],
     lhs:         LitInt,
     dot2_token:  Token![..],
+    eq_token:    Option<Token![=]>,
     rhs:         LitInt,
     brace_token: syn::token::Brace,
     tokens:      TokenStream2,
@@ -28,6 +29,7 @@ impl Parse for Seq {
                  in_token:    input.parse()?,
                  lhs:         input.parse()?,
                  dot2_token:  input.parse()?,
+                 eq_token:    input.parse().ok(),
                  rhs:         input.parse()?,
                  brace_token: syn::braced!(content in input),
                  tokens:      content.parse()?, })
@@ -36,14 +38,19 @@ impl Parse for Seq {
 
 impl Seq {
     fn expan(self) -> TokenStream2 {
-        let Seq { ident, lhs, rhs, tokens, .. } = self;
+        let Seq { ident, lhs, rhs, tokens, eq_token, .. } = self;
         let buffer = syn::buffer::TokenBuffer::new2(tokens);
         let cursor = buffer.begin();
-        let range = lhs.base10_parse::<usize>().unwrap()..rhs.base10_parse::<usize>().unwrap();
+        let range = if eq_token.is_some() {
+            (lhs.base10_parse().unwrap()..=rhs.base10_parse().unwrap()).into()
+        } else {
+            (lhs.base10_parse().unwrap()..rhs.base10_parse().unwrap()).into()
+        };
         repeat::SeqToken::new(cursor, &ident, range).token_stream()
     }
 }
 
+mod range;
 mod repeat;
 mod replace;
 

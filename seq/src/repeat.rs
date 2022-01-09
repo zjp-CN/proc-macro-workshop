@@ -1,5 +1,5 @@
+use crate::range::Range;
 use proc_macro2::{Group, Ident, Literal, Punct, TokenStream as TokenStream2, TokenTree as TT};
-use quote::quote;
 use syn::buffer::{Cursor, TokenBuffer};
 
 // 区分是否需要重复
@@ -9,8 +9,6 @@ pub struct SeqToken<'c, 'i> {
     range:  Range,
     ident:  &'i Ident,
 }
-
-type Range = std::ops::Range<usize>;
 
 impl<'c, 'i> SeqToken<'c, 'i> {
     pub fn new(cursor: Cursor<'c>, ident: &'i Ident, range: Range) -> Self {
@@ -32,7 +30,7 @@ impl<'c, 'i> SeqToken<'c, 'i> {
 
     fn repeat_and_replace(&mut self, cursor: Cursor) {
         let iter = self.range.clone().map(|lit| crate::replace::replace(cursor, self.ident, lit));
-        self.output.push(quote! { #(#iter)* });
+        self.output.push(quote::quote! { #(#iter)* });
     }
 
     // 查找是否存在 `#()*`
