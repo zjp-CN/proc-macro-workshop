@@ -1,0 +1,6 @@
+error: `invalid digit found in string`
+       Only support `usize` type for now!
+ --> tests/10-literal-range-parse-err.rs:2:30
+  |
+2 |     let val = seq::seq!(N in -1..1 {
+  |                              ^^

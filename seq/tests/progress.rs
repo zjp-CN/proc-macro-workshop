@@ -13,4 +13,5 @@ fn tests() {
     t.compile_fail("tests/08-ident-span.rs");
     t.pass("tests/09-interaction-with-macrorules.rs");
     t.compile_fail("tests/09-interaction-with-macrorules2.rs");
+    t.compile_fail("tests/10-literal-range-parse-err.rs");
 }
