@@ -42,8 +42,8 @@ type Search<'c> = Option<(bool, Cursor<'c>)>;
 // 查找某个标识符 i 之后是否跟 `~ident`，如果返回：
 // - Some((true, cur)) 表示找到
 // - Some((false, cur)) 表示未找到，且把捕获的标记添加到 ts
-// - None 在 search_ident 函数中表示标记流结束；
-//        在 search_tidle_ident 函数中表示 **i 与此宏功能无关**，或者标记流结束
+// - None 在 search_ident 函数中表示遇到标记流结束（虽然它最终不返回 None）； 在
+//   search_tidle_ident 函数中表示 **i 与此宏功能无关**，或者标记流结束
 fn search_tidle_ident<'c>(i: TT, cursor: Cursor<'c>, ident: &Ident, lit: usize, ts: &mut Vec<TT>)
                           -> Search<'c> {
     fn search_ident<'c>(i: TT, tidle: TT, cursor: Cursor<'c>, ident: &Ident, lit: usize, ts: &mut Vec<TT>)

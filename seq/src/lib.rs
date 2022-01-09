@@ -36,14 +36,14 @@ impl Parse for Seq {
 
 impl Seq {
     fn expan(self) -> TokenStream2 {
-        use syn::buffer::TokenBuffer;
         let Seq { ident, lhs, rhs, tokens, .. } = self;
-        let buffer = TokenBuffer::new2(tokens);
+        let buffer = syn::buffer::TokenBuffer::new2(tokens);
         let cursor = buffer.begin();
         let range = lhs.base10_parse::<usize>().unwrap()..rhs.base10_parse::<usize>().unwrap();
-        let tokens: Vec<TokenStream2> = range.map(|lit| replace::replace(cursor, &ident, lit)).collect();
-        quote! { #(#tokens)* }
+        let mut count = 0;
+        repeat::SeqToken::new(cursor, &ident, range, &mut count).token_stream()
     }
 }
 
+mod repeat;
 mod replace;
