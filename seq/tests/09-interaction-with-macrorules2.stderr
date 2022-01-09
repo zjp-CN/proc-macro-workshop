@@ -1,0 +1,5 @@
+error: expected integer literal
+  --> tests/09-interaction-with-macrorules2.rs:23:44
+   |
+23 | static PROCS: [Proc; NPROC] = seq!(N in 0..NPROC { [#(Proc::new(),)*] });
+   |                                            ^^^^^
