@@ -1,7 +1,8 @@
 //! 统一 Range<usize> 和 RangeInclusive<usize> 两种类型
 
-type StdRange = std::ops::Range<usize>;
-type StdRangeInc = std::ops::RangeInclusive<usize>;
+pub type RangeLit = usize;
+type StdRange = std::ops::Range<RangeLit>;
+type StdRangeInc = std::ops::RangeInclusive<RangeLit>;
 
 #[derive(Clone)]
 pub enum Range {
@@ -10,7 +11,7 @@ pub enum Range {
 }
 
 impl Iterator for Range {
-    type Item = usize;
+    type Item = RangeLit;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {

@@ -1,8 +1,5 @@
-#![allow(unused)]
-
 use proc_macro::TokenStream;
-use proc_macro2::{Group, Ident, Literal, TokenStream as TokenStream2, TokenTree};
-use quote::quote;
+use proc_macro2::{Group, Ident, TokenStream as TokenStream2};
 use syn::{parse::Parse, LitInt, Token};
 
 #[proc_macro]
@@ -11,6 +8,7 @@ pub fn seq(input: TokenStream) -> TokenStream {
     TokenStream::from(seq.expand())
 }
 
+#[allow(dead_code)]
 struct Seq {
     ident:       Ident,
     in_token:    Token![in],
