@@ -18,10 +18,10 @@ impl<'c, 'i> SeqToken<'c, 'i> {
                    ident }
     }
 
-    // 如果存在 `#()*`，则不重复整个块
+    // 如果存在 `#()*`，则一边捕获，一边替换和重复；如果不存在 `#()*`，则替换和重复整个块
     pub fn token_stream(mut self) -> TokenStream2 {
-        if self.is_repeat() {
-            self.search_and_replace();
+        if self.search_repeat_tag() {
+            self.capture_and_replace();
         } else {
             self.repeat_and_replace(self.cursor);
         }
@@ -34,7 +34,8 @@ impl<'c, 'i> SeqToken<'c, 'i> {
     }
 
     // 查找是否存在 `#()*`
-    fn is_repeat(&self) -> bool {
+    // 最多只遍历一次：中途遇到第一个 `#()*` 标记时直接返回 true
+    fn search_repeat_tag(&self) -> bool {
         let mut cursor = self.cursor;
         while let Some((token, cur)) = cursor.token_tree() {
             match token {
@@ -49,7 +50,7 @@ impl<'c, 'i> SeqToken<'c, 'i> {
                 TT::Group(g) => {
                     if SeqToken::new(TokenBuffer::new2(g.stream()).begin(),
                                               self.ident,
-                                              self.range.clone()).is_repeat() { return true; }
+                                              self.range.clone()).search_repeat_tag() { return true; }
                 }
                 _ => (),
             }
@@ -58,13 +59,14 @@ impl<'c, 'i> SeqToken<'c, 'i> {
         false
     }
 
-    // 查找并替换 `#()*`
-    fn search_and_replace(&mut self) {
+    // 捕获并替换 `#()*`
+    fn capture_and_replace(&mut self) {
         while let Some((token, cur)) = self.cursor.token_tree() {
             self.cursor = cur;
             match token {
                 TT::Punct(p) if p.as_char() == '#' => {
-                    if !self.search_group(cur) {
+                    if !self.check_group(cur) {
+                        // `#` 不是属于 `#()*` 捕获组，则交还 `#` 符号
                         self.output.push(TokenStream2::from(TT::Punct(p)));
                     }
                 }
@@ -74,7 +76,8 @@ impl<'c, 'i> SeqToken<'c, 'i> {
         }
     }
 
-    fn search_group(&mut self, cur_group: Cursor<'c>) -> bool {
+    // 检查为 group 时，替换成字面值，并返回 true；否则返回 false
+    fn check_group(&mut self, cur_group: Cursor<'c>) -> bool {
         if let Some((TT::Group(g), c_star)) = cur_group.token_tree() {
             match c_star.token_tree() {
                 Some((token, c_next)) if matches!(&token, TT::Punct(p) if p.as_char() == '*') => {
@@ -90,7 +93,7 @@ impl<'c, 'i> SeqToken<'c, 'i> {
 
     // 替换后的新标记
     fn output(mut self) -> TokenStream2 {
-        self.search_and_replace();
+        self.capture_and_replace();
         TokenStream2::from_iter(self.output)
     }
 
