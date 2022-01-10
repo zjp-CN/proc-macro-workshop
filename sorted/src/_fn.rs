@@ -27,13 +27,10 @@ impl VisitMut for MatchSorted {
         use quote::format_ident;
 
         // 移除 `#[sorted]` 并复制 match 表达式分支的模式部分
-        if let Some(pos) = node.attrs.iter().position(|attr| {
-                                                attr.path
-                                                    .get_ident()
-                                                    .map(|i| i == &format_ident!("sorted"))
-                                                    .unwrap_or_default()
-                                            })
-        {
+        let filter = |attr: &syn::Attribute| {
+            attr.path.get_ident().map(|i| i == &format_ident!("sorted")).unwrap_or(false)
+        };
+        if let Some(pos) = node.attrs.iter().position(filter) {
             node.attrs.remove(pos);
             self.0.push(node.arms.iter().map(|arm| arm.pat.clone()).collect());
         }
@@ -70,11 +67,13 @@ fn extract_path(pat: &Pat) -> Option<&syn::Path> {
 
 // 把每个匹配分支中的路径（包括多路径形式的路径）拼接成一个字符串
 fn path_to_string(pat: &Pat) -> Option<String> {
-    extract_path(pat).map(|p| p.segments.iter().map(|seg| seg.ident.to_string()).collect::<Vec<_>>().concat())
+    extract_path(pat).map(|p| p.segments.iter().map(|s| s.ident.to_string()).collect::<Vec<_>>().join("::"))
 }
 
 fn cmp_str((raw, match_item): (Vec<String>, &Vec<Pat>)) -> ControlFlow<syn::Error> {
-    if let Err(err) = crate::cmp::StringCmp::new(raw, |pos| extract_path(&match_item[pos]).unwrap().span()).check() {
+    if let Err(err) =
+        crate::cmp::StringCmp::new(raw, |pos| extract_path(&match_item[pos]).unwrap().span()).check()
+    {
         ControlFlow::Break(err)
     } else {
         ControlFlow::Continue(())
