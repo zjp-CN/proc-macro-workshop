@@ -16,3 +16,4 @@ pub fn check(_: TokenStream, input: TokenStream) -> TokenStream {
 
 mod _enum;
 mod _fn;
+mod cmp;
