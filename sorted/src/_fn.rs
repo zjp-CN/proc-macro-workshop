@@ -1,4 +1,4 @@
-use std::ops::ControlFlow;
+use std::{borrow::Cow, ops::ControlFlow};
 use syn::{
     spanned::Spanned,
     visit_mut::{self, VisitMut},
@@ -64,13 +64,25 @@ impl MatchSorted {
 }
 
 // 只支持在部分模式中取路径
-fn extract_path(pat: &Pat) -> Result<&syn::Path> {
-    Ok(match pat {
-        Pat::Path(path) => &path.path,
-        Pat::Struct(s) => &s.path,
-        Pat::TupleStruct(s) => &s.path,
+fn extract_path(pat: &Pat) -> Result<Cow<'_, syn::Path>> {
+    use syn::parse_quote_spanned;
+    let path = match pat {
+        Pat::Path(path) => Cow::Borrowed(&path.path),
+        Pat::Struct(s) => Cow::Borrowed(&s.path),
+        Pat::TupleStruct(s) => Cow::Borrowed(&s.path),
+        Pat::Ident(syn::PatIdent { ident: i, .. }) => Cow::Owned(parse_quote_spanned! { i.span()=> #i }),
+        Pat::Wild(w) => {
+            // 无法使用 parse_quote_spanned! 把 `_` 转化成 Path，所以需要手动构造
+            // Cow::Owned(parse_quote_spanned! { w.underscore_token.span()=> #underscore })
+            let underscore: syn::Ident = w.underscore_token.into();
+            let mut segments = syn::punctuated::Punctuated::new();
+            segments.push(underscore.into());
+            let path = syn::Path { leading_colon: None, segments };
+            Cow::Owned(path)
+        }
         p => return Err(Error::new(p.span(), "unsupported by #[sorted]")),
-    })
+    };
+    Ok(path)
 }
 
 // 把每个匹配分支中的路径（包括多路径形式的路径）拼接成一个字符串

@@ -1,0 +1,5 @@
+error: RustFest should sort before _
+  --> tests/08-underscore-failed.rs:38:13
+   |
+38 |             RustFest => "Europe",
+   |             ^^^^^^^^
