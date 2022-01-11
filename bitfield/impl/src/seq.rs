@@ -1,5 +1,8 @@
 use proc_macro2::{TokenStream as TokenStream2, TokenTree as TT};
-use syn::{buffer::Cursor, Ident, LitInt, Token};
+use syn::{
+    buffer::{Cursor, TokenBuffer},
+    Ident, LitInt, Token,
+};
 
 #[allow(dead_code)]
 pub struct Seq {
@@ -10,37 +13,32 @@ pub struct Seq {
     eq_token:    Token![=],
     rhs:         LitInt,
     brace_token: syn::token::Brace,
-    pub tokens:  TokenStream2,
+    tokens:      TokenStream2,
 }
 
 impl syn::parse::Parse for Seq {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let ident = input.parse()?;
-        let in_token = input.parse()?;
-        let lhs: LitInt = input.parse()?;
-        let dot2_token = input.parse()?;
-        let eq_token = input.parse()?;
-        let rhs: LitInt = input.parse()?;
-
         let content;
-        let brace_token = syn::braced!(content in input);
+        Ok(Seq { ident:       input.parse()?,
+                 in_token:    input.parse()?,
+                 lhs:         input.parse()?,
+                 dot2_token:  input.parse()?,
+                 eq_token:    input.parse()?,
+                 rhs:         input.parse()?,
+                 brace_token: syn::braced!(content in input),
+                 tokens:      content.parse()?, })
+    }
+}
 
+impl Seq {
+    pub fn finish(self) -> TokenStream2 {
+        let Seq { ident, lhs, rhs, tokens, .. } = self;
         let range = match (lhs.base10_parse(), rhs.base10_parse()) {
             (Ok(l), Ok(r)) => l..=r,
             _ => unreachable!("请输入 u8 范围"),
         };
-
-        let cursor = content.cursor();
-        let tokens = range.map(|lit| process(cursor, &ident, lit)).collect();
-
-        Ok(Seq { ident,
-                 in_token,
-                 lhs,
-                 dot2_token,
-                 eq_token,
-                 rhs,
-                 brace_token,
-                 tokens })
+        let buf = TokenBuffer::new2(tokens);
+        range.map(|lit| process(buf.begin(), &ident, lit)).collect()
     }
 }
 
@@ -61,7 +59,7 @@ fn process(mut cursor: Cursor, ident: &Ident, lit: u8) -> TokenStream2 {
                 }
             }
             TT::Group(ref g) => {
-                let buf = syn::buffer::TokenBuffer::new2(g.stream());
+                let buf = TokenBuffer::new2(g.stream());
                 let mut group = proc_macro2::Group::new(g.delimiter(), process(buf.begin(), ident, lit));
                 group.set_span(g.span());
                 ts.push(group.into());
@@ -70,7 +68,7 @@ fn process(mut cursor: Cursor, ident: &Ident, lit: u8) -> TokenStream2 {
         }
     }
 
-    dbg!(ts.into_iter().collect())
+    ts.into_iter().collect()
 }
 
 fn search_tidle_lit<'c>(cur: Cursor<'c>, ident: &Ident) -> Option<Cursor<'c>> {

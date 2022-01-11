@@ -12,6 +12,5 @@ mod seq;
 
 #[proc_macro]
 pub fn seq(input: TokenStream) -> TokenStream {
-    let input = syn::parse_macro_input!(input as seq::Seq);
-    dbg!(input.tokens).into()
+    TokenStream::from(syn::parse_macro_input!(input as seq::Seq).finish())
 }
