@@ -91,8 +91,7 @@ fn path_to_string(pat: &Pat) -> Result<String> {
 }
 
 fn cmp_str((raw, match_item): (Vec<String>, &Vec<Pat>)) -> ControlFlow<Error> {
-    if let Err(err) = crate::cmp::StringCmp::finish(raw, |pos| extract_path(&match_item[pos]).unwrap().span())
-    {
+    if let Err(err) = crate::cmp::finish(raw, |pos| extract_path(&match_item[pos]).unwrap().span()) {
         ControlFlow::Break(err)
     } else {
         ControlFlow::Continue(())
