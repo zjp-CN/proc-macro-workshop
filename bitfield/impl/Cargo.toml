@@ -8,4 +8,6 @@ publish = false
 proc-macro = true
 
 [dependencies]
-# TODO
+quote = "1"
+syn = {version = "1", features = ["extra-traits"]}
+proc-macro2 = "1"
