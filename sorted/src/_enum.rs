@@ -17,5 +17,5 @@ pub fn process(input: &syn::Item) -> proc_macro2::TokenStream {
 fn sort(input: &syn::ItemEnum) -> syn::Result<()> {
     let input = &input.variants;
     let vars: Vec<_> = input.iter().map(|variant| variant.ident.to_string()).collect();
-    crate::cmp::StringCmp::new(vars, |pos| input[pos].ident.span()).check()
+    crate::cmp::StringCmp::finish(vars, |pos| input[pos].ident.span())
 }

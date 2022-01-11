@@ -24,11 +24,12 @@ struct MatchSorted(Vec<Vec<Pat>>);
 
 impl VisitMut for MatchSorted {
     fn visit_expr_match_mut(&mut self, node: &mut syn::ExprMatch) {
-        use quote::format_ident;
-
         // 移除 `#[sorted]` 并复制 match 表达式分支的模式部分
         let filter = |attr: &syn::Attribute| {
-            attr.path.get_ident().map(|i| i == &format_ident!("sorted")).unwrap_or(false)
+            attr.path
+                .get_ident()
+                .map(|i| i == &quote::format_ident!("sorted"))
+                .unwrap_or(false)
         };
         if let Some(pos) = node.attrs.iter().position(filter) {
             node.attrs.remove(pos);
@@ -77,8 +78,7 @@ fn extract_path(pat: &Pat) -> Result<Cow<'_, syn::Path>> {
             let underscore: syn::Ident = w.underscore_token.into();
             let mut segments = syn::punctuated::Punctuated::new();
             segments.push(underscore.into());
-            let path = syn::Path { leading_colon: None, segments };
-            Cow::Owned(path)
+            Cow::Owned(syn::Path { leading_colon: None, segments })
         }
         p => return Err(Error::new(p.span(), "unsupported by #[sorted]")),
     };
@@ -91,8 +91,7 @@ fn path_to_string(pat: &Pat) -> Result<String> {
 }
 
 fn cmp_str((raw, match_item): (Vec<String>, &Vec<Pat>)) -> ControlFlow<Error> {
-    if let Err(err) =
-        crate::cmp::StringCmp::new(raw, |pos| extract_path(&match_item[pos]).unwrap().span()).check()
+    if let Err(err) = crate::cmp::StringCmp::finish(raw, |pos| extract_path(&match_item[pos]).unwrap().span())
     {
         ControlFlow::Break(err)
     } else {
