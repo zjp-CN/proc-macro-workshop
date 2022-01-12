@@ -12,15 +12,22 @@
 // (macro, trait, struct) through the one bitfield crate.
 pub use bitfield_impl::bitfield;
 
-use bitfield_impl::seq;
+// pub trait Specifier {
+//     const BITS: u8;
+// }
 
 pub trait Specifier {
     const BITS: u8;
+
+    type T: Sized;
+    const TLEN: u8;
+    const MAX: <Self as Specifier>::T;
 }
 
-seq!(N in 1..=64 {
-    pub struct B~N;
-    impl Specifier for B~N {
-        const BITS: u8 = N;
-    }
-});
+bitfield_impl::gen!();
+// bitfield_impl::seq!(N in 1..=64 {
+//     pub struct B~N;
+//     impl Specifier for B~N {
+//         const BITS: u8 = N;
+//     }
+// });

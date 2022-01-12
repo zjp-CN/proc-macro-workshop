@@ -7,9 +7,7 @@ pub fn bitfield(_: TokenStream, input: TokenStream) -> TokenStream {
 }
 
 mod bit;
-mod seq;
+mod gen;
 
 #[proc_macro]
-pub fn seq(input: TokenStream) -> TokenStream {
-    TokenStream::from(syn::parse_macro_input!(input as seq::Seq).finish())
-}
+pub fn gen(_: TokenStream) -> TokenStream { TokenStream::from(gen::generate()) }
