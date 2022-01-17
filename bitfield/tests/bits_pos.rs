@@ -21,7 +21,7 @@ fn test_56_18_26_14_8() {
     assert_eq!(Bit14::OFFSET, 4);
     assert_eq!(Bit08::OFFSET, 2);
 
-    let mut arr = [0; (56 + 18 + 26 + 14 + 8) / 8 + (56 + 18 + 26 + 14 + 8) % 8 as usize];
+    let mut arr = [0; (56 + 18 + 26 + 14 + 8) / 8 + (56 + 18 + 26 + 14 + 8) % 8];
 
     Bit08::set_u8(&mut arr, 250);
     assert_eq!(Bit08::get_u8(&arr), 250);
@@ -171,5 +171,40 @@ fn test_1_3_4_55_1() {
     Bit4::set_u8(&mut arr, u8::MAX);
     Bit55::set_u64(&mut arr, u64::MAX);
     Bit1_::set_u8(&mut arr, u8::MAX);
+    assert_eq!(arr.iter().map(|&a| a as usize).sum::<usize>(), arr.len() * u8::MAX as usize);
+}
+
+// This is on the contrary with test 04-multiple-of-8bits.
+// Because that test assumes the length of the array is a multiple of 8 bits,
+// but the lib implementation sets less constrains on array length:
+// array length can be equal or greater than needed bits.
+#[test]
+fn test_1_3_4_23() {
+    type Bit1 = BitsPos<1, 0>;
+    type Bit3 = BitsPos<3, 1>;
+    type Bit4 = BitsPos<4, 4>;
+    type Bit23 = BitsPos<23, 8>;
+
+    assert_eq!(Bit1::RANGE, 0..=0);
+    assert_eq!(Bit3::RANGE, 0..=0);
+    assert_eq!(Bit4::RANGE, 0..=0);
+    assert_eq!(Bit23::RANGE, 1..=3);
+
+    assert_eq!(Bit1::OFFSET, 0);
+    assert_eq!(Bit3::OFFSET, 1);
+    assert_eq!(Bit4::OFFSET, 4);
+    assert_eq!(Bit23::OFFSET, 0);
+
+    let mut arr = [0; 4];
+
+    Bit1::set_u8(&mut arr, u8::MAX);
+    assert_eq!(Bit1::get_u8(&arr), u8::MAX >> (8 - 1));
+    Bit3::set_u8(&mut arr, u8::MAX);
+    assert_eq!(Bit3::get_u8(&arr), u8::MAX >> (8 - 3));
+    Bit4::set_u8(&mut arr, u8::MAX);
+    assert_eq!(Bit4::get_u8(&arr), u8::MAX >> (8 - 4));
+    Bit23::set_u32(&mut arr, u32::MAX);
+    assert_eq!(Bit23::get_u32(&arr), u32::MAX >> (32 - 23));
+
     assert_eq!(arr.iter().map(|&a| a as usize).sum::<usize>(), arr.len() * u8::MAX as usize);
 }
