@@ -9,6 +9,10 @@ publish = false
 name = "tests"
 path = "tests/progress.rs"
 
+[[test]]
+name = "bits_pos"
+path = "./tests/bits_pos.rs"
+
 [dev-dependencies]
 trybuild = { version = "1.0.49", features = ["diff"] }
 
