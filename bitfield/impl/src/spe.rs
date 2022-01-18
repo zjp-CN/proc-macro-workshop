@@ -2,8 +2,8 @@ pub fn derive_bitfield_specifier_for_enum(input: syn::ItemEnum) -> proc_macro2::
     let enum_name = &input.ident;
     let vars = input.variants.iter().map(|v| &v.ident);
 
-    let len = input.variants.len();
-    let bits = if let Some(b) = log2_exact(len as u32) {
+    let len = input.variants.len() as u32;
+    let bits = if let Some(b) = log2_exact(len) {
         b
     } else {
         return syn::Error::new(proc_macro2::Span::call_site(),
@@ -11,9 +11,9 @@ pub fn derive_bitfield_specifier_for_enum(input: syn::ItemEnum) -> proc_macro2::
     };
 
     // __check_bits
-    let vars2 = vars.clone();
-    let max = 1u32 << log2(len as u32);
-    let const_var = vars.clone().map(|v| quote::format_ident!("_{}", v));
+    let var = vars.clone();
+    let max = 1u32 << log2(len);
+    let const_var = vars.clone().map(|v| quote::format_ident!("C{}", v.to_string().to_uppercase()));
 
     let ty = quote::format_ident!("B{}", bits);
     let ty_u = quote::format_ident!("__{}", input.ident);
@@ -40,8 +40,7 @@ pub fn derive_bitfield_specifier_for_enum(input: syn::ItemEnum) -> proc_macro2::
                 use #enum_name::*;
                 const MAX: #ty_u = #max as #ty_u;
                 #(
-                    #[allow(non_upper_case_globals)]
-                    const #const_var : #ty_u = 0 - !((#vars2 as #ty_u) < MAX) as #ty_u;
+                    const #const_var : #ty_u = 0 - !((#var as #ty_u) < MAX) as #ty_u;
                 )*
             }
         }
@@ -60,7 +59,7 @@ pub fn derive_bitfield_specifier_for_enum(input: syn::ItemEnum) -> proc_macro2::
 }
 
 // 改进自 https://users.rust-lang.org/t/logarithm-of-integers/8506/5
-// 这个函数可以根据吗 enum 的成员数自动计算最小 bits
+// 这个函数可以根据 enum 的成员数自动计算最小 bits
 const fn log2(n: u32) -> u32 { u32::BITS - n.leading_zeros() - 1 + (n.count_ones() != 1) as u32 }
 
 const fn log2_exact(n: u32) -> Option<u32> {
