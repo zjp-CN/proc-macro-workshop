@@ -1,12 +1,20 @@
 pub fn derive_bitfield_specifier_for_enum(input: syn::ItemEnum) -> proc_macro2::TokenStream {
     let enum_name = &input.ident;
     let vars = input.variants.iter().map(|v| &v.ident);
-    let bits = if let Some(b) = log2_exact(input.variants.len() as u32) {
+
+    let len = input.variants.len();
+    let bits = if let Some(b) = log2_exact(len as u32) {
         b
     } else {
         return syn::Error::new(proc_macro2::Span::call_site(),
                                "BitfieldSpecifier expected a number of variants which is a power of 2").to_compile_error();
     };
+
+    // __check_bits
+    let vars2 = vars.clone();
+    let var_first = input.variants.first().map(|v| &v.ident).expect("枚举体成员数至少应为 1");
+    let max = 1u32 << log2(len as u32);
+
     let ty = quote::format_ident!("B{}", bits);
     let ty_u = quote::format_ident!("__{}", input.ident);
     let ty_equiv = quote::format_ident!("__{}Equiv", input.ident);
@@ -19,13 +27,26 @@ pub fn derive_bitfield_specifier_for_enum(input: syn::ItemEnum) -> proc_macro2::
         type #ty_equiv = ::bitfield::#ty;
         type #ty_u = <#ty_equiv as ::bitfield::Specifier>::T;
         impl #impl_generics #enum_name #ty_generics #where_clause {
-            fn from_integer(num: #ty_u) -> Self {
+            fn __from_integer(num: #ty_u) -> Self {
                 // https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=bed314b000b163a027a7a5312c94e74b
                 use #enum_name::*;
-                [#( (#vars as #ty_u, #vars) ),*].into_iter()
-                    .find_map(|(u, e)| if u == num { Some(e) } else { None })
-                    // The variant must be found in this case.
-                    .unwrap()
+                let arr = [#( (#vars as #ty_u, #vars) ),*];
+                // The variant must be found in this case.
+                arr.into_iter().find_map(|(u, e)| if u == num { Some(e) } else { None }).unwrap()
+            }
+
+            fn __check_bits() {
+                use #enum_name::*;
+                const MAX: #ty_u = #max as #ty_u;
+                let arr_assert = [#( (#vars2 as #ty_u, stringify!(#vars2) ) ),*];
+                if let Err((u, e)) = arr_assert.into_iter().try_fold((0, stringify!(#var_first)), |_, (u, e)| {
+                    let output = (u, e);
+                    if output.0 < MAX { Ok(output) } else { Err(output) }
+                }) {
+                    // 运行时触发：
+                    ::std::panic!("`{}` is outside of the range 0..{} at the discriminant of `{}`", u, MAX, e);
+                    // ::std::compile_error!("Variant out of range!");
+                }
             }
         }
 
@@ -36,7 +57,7 @@ pub fn derive_bitfield_specifier_for_enum(input: syn::ItemEnum) -> proc_macro2::
                 <#ty_equiv as ::bitfield::Specifier>::set::<ACC>(arr, num as #ty_u)
             }
             fn get<const ACC: usize>(arr: &[u8]) -> <Self as Specifier>::T {
-                #enum_name::from_integer(<#ty_equiv as ::bitfield::Specifier>::get::<ACC>(arr))
+                #enum_name::__from_integer(<#ty_equiv as ::bitfield::Specifier>::get::<ACC>(arr))
             }
         }
     }

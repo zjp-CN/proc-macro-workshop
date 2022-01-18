@@ -13,6 +13,10 @@ path = "tests/progress.rs"
 name = "bits_pos"
 path = "./tests/bits_pos.rs"
 
+[[test]]
+name = "09"
+path = "./tests/09-variant-out-of-range2.rs"
+
 [dev-dependencies]
 trybuild = { version = "1.0.49", features = ["diff"] }
 

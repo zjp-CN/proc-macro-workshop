@@ -11,7 +11,10 @@ fn tests() {
     t.pass("tests/06-enums.rs");
     t.pass("tests/07-optional-discriminant.rs");
     t.compile_fail("tests/08-non-power-of-two.rs");
+
     // t.compile_fail("tests/09-variant-out-of-range.rs");
+    // This is an alternative test for 09: tests/09-variant-out-of-range2.rs
+
     // t.pass("tests/10-bits-attribute.rs");
     // t.compile_fail("tests/11-bits-attribute-wrong.rs");
     t.pass("tests/12-accessors-edge.rs");
