@@ -11,7 +11,7 @@ pub fn generate() -> proc_macro2::TokenStream {
             pub struct #ident;
             impl Specifier for #ident {
                 const BITS: usize = #range;
-                type T = #u_ident;
+                type T = ::core::primitive::#u_ident;
 
                 fn set<const ACC: usize>(arr: &mut [u8], num: <Self as Specifier>::T) {
                     <BitsPos<#range, ACC>>::#setter(arr, num)
