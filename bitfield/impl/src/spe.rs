@@ -41,8 +41,7 @@ pub fn derive_bitfield_specifier_for_enum(input: syn::ItemEnum) -> proc_macro2::
                 const MAX: #ty_u = #max as #ty_u;
                 #(
                     #[allow(non_upper_case_globals)]
-                    const #const_var : #ty_u = #vars2 as #ty_u;
-                    const _: [(); 0 - !(#const_var < MAX) as usize] = [];
+                    const #const_var : #ty_u = 0 - !((#vars2 as #ty_u) < MAX) as #ty_u;
                 )*
             }
         }
