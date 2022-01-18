@@ -11,6 +11,7 @@
 // From the perspective of a user of this crate, they get all the necessary APIs
 // (macro, trait, struct) through the one bitfield crate.
 pub use bitfield_impl::bitfield;
+pub use bitfield_impl::BitfieldSpecifier;
 
 pub trait Specifier {
     const BITS: usize;
@@ -22,6 +23,16 @@ pub trait Specifier {
 }
 
 bitfield_impl::gen! {}
+
+impl Specifier for bool {
+    type T = bool;
+
+    const BITS: usize = 1;
+
+    fn set<const ACC: usize>(arr: &mut [u8], num: bool) { B1::set::<ACC>(arr, num as u8) }
+
+    fn get<const ACC: usize>(arr: &[u8]) -> bool { B1::get::<ACC>(arr).eq(&1) }
+}
 
 mod pos;
 pub use pos::BitsPos;
