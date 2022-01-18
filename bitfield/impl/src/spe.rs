@@ -12,8 +12,8 @@ pub fn derive_bitfield_specifier_for_enum(input: syn::ItemEnum) -> proc_macro2::
 
     // __check_bits
     let vars2 = vars.clone();
-    let var_first = input.variants.first().map(|v| &v.ident).expect("枚举体成员数至少应为 1");
     let max = 1u32 << log2(len as u32);
+    let const_var = vars.clone().map(|v| quote::format_ident!("_{}", v));
 
     let ty = quote::format_ident!("B{}", bits);
     let ty_u = quote::format_ident!("__{}", input.ident);
@@ -35,18 +35,15 @@ pub fn derive_bitfield_specifier_for_enum(input: syn::ItemEnum) -> proc_macro2::
                 arr.into_iter().find_map(|(u, e)| if u == num { Some(e) } else { None }).unwrap()
             }
 
-            fn __check_bits() {
+            // 测试 discriminant 必须小于 MAX
+            const fn __check_bits() {
                 use #enum_name::*;
                 const MAX: #ty_u = #max as #ty_u;
-                let arr_assert = [#( (#vars2 as #ty_u, stringify!(#vars2) ) ),*];
-                if let Err((u, e)) = arr_assert.into_iter().try_fold((0, stringify!(#var_first)), |_, (u, e)| {
-                    let output = (u, e);
-                    if output.0 < MAX { Ok(output) } else { Err(output) }
-                }) {
-                    // 运行时触发：
-                    ::std::panic!("`{}` is outside of the range 0..{} at the discriminant of `{}`", u, MAX, e);
-                    // ::std::compile_error!("Variant out of range!");
-                }
+                #(
+                    #[allow(non_upper_case_globals)]
+                    const #const_var : #ty_u = #vars2 as #ty_u;
+                    const _: [(); 0 - !(#const_var < MAX) as usize] = [];
+                )*
             }
         }
 
@@ -65,7 +62,6 @@ pub fn derive_bitfield_specifier_for_enum(input: syn::ItemEnum) -> proc_macro2::
 
 // 改进自 https://users.rust-lang.org/t/logarithm-of-integers/8506/5
 // 这个函数可以根据吗 enum 的成员数自动计算最小 bits
-#[allow(dead_code)]
 const fn log2(n: u32) -> u32 { u32::BITS - n.leading_zeros() - 1 + (n.count_ones() != 1) as u32 }
 
 const fn log2_exact(n: u32) -> Option<u32> {
