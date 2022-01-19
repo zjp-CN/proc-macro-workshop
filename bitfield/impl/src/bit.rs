@@ -1,5 +1,5 @@
 use proc_macro2::TokenStream as TokenStream2;
-use quote::quote;
+use quote::{format_ident, quote};
 
 pub fn expand(input: syn::Item) -> TokenStream2 {
     match input {
@@ -10,8 +10,8 @@ pub fn expand(input: syn::Item) -> TokenStream2 {
                                             fields: syn::Fields::Named(fields),
                                             .. }) => {
             let id = fields.named.iter().map(|f| f.ident.as_ref().unwrap());
-            let getter = id.clone().map(|i| quote::format_ident!("get_{}", i));
-            let setter = id.clone().map(|i| quote::format_ident!("set_{}", i));
+            let getter = id.clone().map(|i| format_ident!("get_{}", i));
+            let setter = id.clone().map(|i| format_ident!("set_{}", i));
 
             let ty = fields.named.iter().map(|f| &f.ty);
             let ty2 = ty.clone();
@@ -21,17 +21,13 @@ pub fn expand(input: syn::Item) -> TokenStream2 {
             };
             let len = fields.named.len();
 
-            let _id = id.clone();
-            let _width_name = id.clone().map(|i| quote::format_ident!("width_{}", i));
-            let _width_val = ty.clone().map(|t| quote! { <#t as ::bitfield::Specifier>::BITS  });
-
             let sig_ty = ty.clone().map(|t| quote! { <#t as ::bitfield::Specifier>::T });
             let size = quote! { #( <#ty as ::bitfield::Specifier>::BITS as usize )+* };
             let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
             let range = 0..len;
-            let acc_name = id.clone().map(|i| quote::format_ident!("acc_{}", i));
-            let acc_name2 = id.clone().map(|i| quote::format_ident!("acc_{}", i));
+            let acc_name = id.clone().map(|i| format_ident!("acc_{}", i));
+            let acc_name2 = id.clone().map(|i| format_ident!("acc_{}", i));
             let acc_val = range.map(|n| {
                                    if n == 0 {
                                        quote! { 0 }
@@ -41,9 +37,7 @@ pub fn expand(input: syn::Item) -> TokenStream2 {
                                    }
                                });
 
-            // let getter_ty = sig_ty.clone().map(|t| quote::format_ident!("get_{}", t));
-            // let ty_idents: Vec<syn::Ident> = sig_ty.clone().map(|t| syn::parse_quote!(#t)).collect();
-            // dbg!(ty_idents);
+            let check_bits = fields.named.iter().filter_map(check_bits);
 
             quote! {
                 #(#attrs)*
@@ -72,18 +66,31 @@ pub fn expand(input: syn::Item) -> TokenStream2 {
                     const WIDTH: [usize; #len] = #width;
 
                     #(
-                        // u8 考虑变成 usize 或者 u32
                         #[allow(non_upper_case_globals)]
                         const #acc_name : usize = #acc_val;
-                        // #[allow(non_upper_case_globals)]
-                        // const #width_name : usize = #width_val as usize;
-                        // #[allow(non_upper_case_globals)]
-                        // type #_id =
-                        //     ::bitfield::BitsPos::<Self::#width_name , Self::#acc_name>;
                     )*
                 }
+
+                #( #check_bits )*
             }
         }
         _ => unimplemented!(),
     }
+}
+
+fn check_bits(f: &syn::Field) -> Option<TokenStream2> {
+    fn meta_bits(attr: &syn::Attribute) -> Option<syn::Lit> {
+        match attr.parse_meta().ok()? {
+            syn::Meta::NameValue(syn::MetaNameValue { lit, path, .. }) if path.is_ident("bits") => Some(lit),
+            _ => None,
+        }
+    }
+
+    f.attrs.iter().find_map(meta_bits).map(|lit| {
+        let e = &f.ty;
+        quote::quote_spanned! {
+            lit.span()=>
+                const _ : [(); #lit] = [(); <#e as ::bitfield::Specifier>::BITS];
+        }
+    })
 }
