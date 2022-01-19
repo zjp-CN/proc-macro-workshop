@@ -21,6 +21,12 @@ pub fn expand(input: syn::Item) -> TokenStream2 {
             };
             let len = fields.named.len();
 
+            // related to test 04
+            let total_bits = {
+                let ty = ty.clone();
+                quote! { #( <#ty as ::bitfield::Specifier>::BITS )+* }
+            };
+
             let sig_ty = ty.clone().map(|t| quote! { <#t as ::bitfield::Specifier>::T });
             let size = quote! { #( <#ty as ::bitfield::Specifier>::BITS as usize )+* };
             let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
@@ -37,6 +43,7 @@ pub fn expand(input: syn::Item) -> TokenStream2 {
                                    }
                                });
 
+            // related to test 10 and 11
             let check_bits = fields.named.iter().filter_map(check_bits);
 
             quote! {
@@ -71,6 +78,7 @@ pub fn expand(input: syn::Item) -> TokenStream2 {
                     )*
                 }
 
+                const _ : usize = 0 - (#total_bits) % 8;
                 #( #check_bits )*
             }
         }

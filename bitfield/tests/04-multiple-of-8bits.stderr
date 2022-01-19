@@ -1,7 +1,10 @@
-error[E0277]: the trait bound `bitfield::checks::SevenMod8: bitfield::checks::TotalSizeIsMultipleOfEightBits` is not satisfied
+error: any use of this value will cause an error
   --> tests/04-multiple-of-8bits.rs:53:1
    |
 53 | #[bitfield]
-   | ^^^^^^^^^^^ the trait `bitfield::checks::TotalSizeIsMultipleOfEightBits` is not implemented for `bitfield::checks::SevenMod8`
+   | ^^^^^^^^^^^ attempt to compute `0_usize - 7_usize`, which would overflow
    |
+   = note: `#[deny(const_err)]` on by default
+   = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
+   = note: for more information, see issue #71800 <https://github.com/rust-lang/rust/issues/71800>
    = note: this error originates in the attribute macro `bitfield` (in Nightly builds, run with -Z macro-backtrace for more info)
