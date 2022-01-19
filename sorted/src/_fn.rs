@@ -1,4 +1,4 @@
-use std::{borrow::Cow, ops::ControlFlow};
+use std::borrow::Cow;
 use syn::{
     spanned::Spanned,
     visit_mut::{self, VisitMut},
@@ -54,13 +54,12 @@ impl MatchSorted {
     }
 
     fn cmp(&self) -> Result<()> {
-        if let ControlFlow::Break(err) =
-            self.to_vec_string()?.into_iter().zip(self.0.iter()).try_for_each(cmp_str)
-        {
-            Err(err)
-        } else {
-            Ok(())
-        }
+        self.to_vec_string()?
+            .into_iter()
+            .zip(self.0.iter())
+            .try_for_each(|(raw, match_item)| {
+                crate::cmp::finish(raw, |pos| extract_path(&match_item[pos]).unwrap().span())
+            })
     }
 }
 
@@ -88,12 +87,4 @@ fn extract_path(pat: &Pat) -> Result<Cow<'_, syn::Path>> {
 // 把每个匹配分支中的路径（包括多路径形式的路径）拼接成一个字符串
 fn path_to_string(pat: &Pat) -> Result<String> {
     extract_path(pat).map(|p| p.segments.iter().map(|s| s.ident.to_string()).collect::<Vec<_>>().join("::"))
-}
-
-fn cmp_str((raw, match_item): (Vec<String>, &Vec<Pat>)) -> ControlFlow<Error> {
-    if let Err(err) = crate::cmp::finish(raw, |pos| extract_path(&match_item[pos]).unwrap().span()) {
-        ControlFlow::Break(err)
-    } else {
-        ControlFlow::Continue(())
-    }
 }
