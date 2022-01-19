@@ -1,3 +1,9 @@
+//! 此测试应与 src/pos/tests.rs 保持一致
+
+// 此结构体为最初的版本，相比于 src/pos 中的设计，存在以下不足：
+// 1. 不应有多种展现方式：当 const generics 一旦确定，只需要生成一个目标类型的相关方法（因此改用
+//    SetGet trait 进行抽象和组织）
+// 2. 运行时确定和计算 Self::RANGE_LHS.. ，而这可以优化到编译时计算（因而增加 SIZE 泛型）
 pub struct BitsPos<const WIDTH: usize, const ACC: usize>;
 
 type Range = std::ops::RangeInclusive<usize>;
@@ -215,6 +221,7 @@ impl<const WIDTH: usize, const ACC: usize> BitsPos<WIDTH, ACC> {
 #[test]
 fn test_56_18_26_14_8() {
     // [56, 18, 26, 14, 8]
+    const SIZE: usize = (56 + 18 + 26 + 14 + 8) / 8 + ((56 + 18 + 26 + 14 + 8) % 8 != 0) as usize;
     type Bit56 = BitsPos<56, 0>;
     type Bit18 = BitsPos<18, 56>;
     type Bit26 = BitsPos<26, 74>;
@@ -233,7 +240,7 @@ fn test_56_18_26_14_8() {
     assert_eq!(Bit14::OFFSET, 4);
     assert_eq!(Bit08::OFFSET, 2);
 
-    let mut arr = [0; (56 + 18 + 26 + 14 + 8) / 8 + (56 + 18 + 26 + 14 + 8) % 8];
+    let mut arr = [0; SIZE];
 
     Bit08::set_u8(&mut arr, 250);
     assert_eq!(Bit08::get_u8(&arr), 250);
@@ -272,11 +279,12 @@ fn test_56_18_26_14_8() {
 
 #[test]
 fn test_1_32_64() {
+    const SIZE: usize = (1 + 32 + 64) / 8 + ((1 + 32 + 64) % 8 != 0) as usize;
     type Bit01 = BitsPos<1, 0>;
     type Bit32 = BitsPos<32, 1>;
     type Bit64 = BitsPos<64, 33>;
 
-    let mut arr = [0; 13];
+    let mut arr = [0; SIZE];
 
     Bit01::set_u8(&mut arr, 1);
     assert_eq!(Bit01::get_u8(&arr), 1);
@@ -288,11 +296,12 @@ fn test_1_32_64() {
 
 #[test]
 fn test_16_32_64() {
+    const SIZE: usize = (16 + 32 + 64) / 8 + ((16 + 32 + 64) % 8 != 0) as usize;
     type Bit16 = BitsPos<16, 0>;
     type Bit32 = BitsPos<32, 16>;
     type Bit64 = BitsPos<64, 48>;
 
-    let mut arr = [0; 14];
+    let mut arr = [0; SIZE];
 
     Bit16::set_u16(&mut arr, u16::MAX);
     assert_eq!(Bit16::get_u16(&arr), u16::MAX);
@@ -304,6 +313,7 @@ fn test_16_32_64() {
 
 #[test]
 fn test_1_3_4_24() {
+    const SIZE: usize = (1 + 3 + 4 + 24) / 8 + ((1 + 3 + 4 + 24) % 8 != 0) as usize;
     type Bit1 = BitsPos<1, 0>;
     type Bit3 = BitsPos<3, 1>;
     type Bit4 = BitsPos<4, 4>;
@@ -321,7 +331,7 @@ fn test_1_3_4_24() {
 
     assert_eq!(Bit24::RANGE_U32, 1..=4);
 
-    let mut arr = [0; 4];
+    let mut arr = [0; SIZE];
 
     Bit1::set_u8(&mut arr, u8::MAX);
     assert_eq!(Bit1::get_u8(&arr), u8::MAX >> (8 - 1));
@@ -335,6 +345,7 @@ fn test_1_3_4_24() {
 
 #[test]
 fn test_1_3_4_55_1() {
+    const SIZE: usize = (1 + 3 + 4 + 55 + 1) / 8 + ((1 + 3 + 4 + 55 + 1) % 8 != 0) as usize;
     type Bit1 = BitsPos<1, 0>;
     type Bit3 = BitsPos<3, 1>;
     type Bit4 = BitsPos<4, 4>;
@@ -353,7 +364,7 @@ fn test_1_3_4_55_1() {
     assert_eq!(Bit55::OFFSET, 0);
     assert_eq!(Bit1_::OFFSET, 7);
 
-    let mut arr = [0; 8];
+    let mut arr = [0; SIZE];
 
     Bit1::set_u8(&mut arr, u8::MAX);
     assert_eq!(Bit1::get_u8(&arr), u8::MAX >> (8 - 1));
@@ -392,6 +403,7 @@ fn test_1_3_4_55_1() {
 // array length can be equal or greater than needed bits.
 #[test]
 fn test_1_3_4_23() {
+    const SIZE: usize = (1 + 3 + 4 + 23) / 8 + ((1 + 3 + 4 + 23) % 8 != 0) as usize;
     type Bit1 = BitsPos<1, 0>;
     type Bit3 = BitsPos<3, 1>;
     type Bit4 = BitsPos<4, 4>;
@@ -407,7 +419,7 @@ fn test_1_3_4_23() {
     assert_eq!(Bit4::OFFSET, 4);
     assert_eq!(Bit23::OFFSET, 0);
 
-    let mut arr = [0; 4];
+    let mut arr = [0; SIZE];
 
     Bit1::set_u8(&mut arr, u8::MAX);
     assert_eq!(Bit1::get_u8(&arr), u8::MAX >> (8 - 1));

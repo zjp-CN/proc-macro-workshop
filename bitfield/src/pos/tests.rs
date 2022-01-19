@@ -1,3 +1,5 @@
+//! 此测试应与 tests/bits_pos.rs 保持一致
+
 use crate::{Basic, BitsU16, BitsU32, BitsU64, BitsU8, SetGet};
 
 #[test]
