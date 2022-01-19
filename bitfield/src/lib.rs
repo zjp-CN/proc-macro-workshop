@@ -35,4 +35,4 @@ impl Specifier for bool {
 }
 
 mod pos;
-pub use pos::BitsPos;
+pub use pos::{Basic, BitsU16, BitsU32, BitsU64, BitsU8, SetGet};

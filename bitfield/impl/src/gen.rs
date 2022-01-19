@@ -1,11 +1,12 @@
 //! 生成 B1 ~ B64（只在 lib 内部使用）
 
+use quote::format_ident;
+
 pub fn generate() -> proc_macro2::TokenStream {
     let range = 1..=64;
-    let ident = range.clone().map(|n| quote::format_ident!("B{}", n));
-    let (u_ident, _u): (Vec<_>, Vec<_>) = range.clone().map(u_).unzip();
-    let setter = u_ident.iter().map(|i| quote::format_ident!("set_{}", i));
-    let getter = u_ident.iter().map(|i| quote::format_ident!("get_{}", i));
+    let ident = range.clone().map(|n| format_ident!("B{}", n));
+    let (u_ident, bits_u): (Vec<_>, Vec<_>) =
+        range.clone().map(u_).map(|(i, u)| (i, format_ident!("BitsU{}", u))).unzip();
     quote::quote! {
         #(
             pub struct #ident;
@@ -14,10 +15,10 @@ pub fn generate() -> proc_macro2::TokenStream {
                 type T = ::core::primitive::#u_ident;
 
                 fn set<const ACC: usize>(arr: &mut [u8], num: <Self as Specifier>::T) {
-                    <BitsPos<#range, ACC>>::#setter(arr, num)
+                    <#bits_u <#range, ACC> as SetGet>::SET(arr, num)
                 }
                 fn get<const ACC: usize>(arr: &[u8]) -> <Self as Specifier>::T {
-                    <BitsPos<#range, ACC>>::#getter(arr)
+                    <#bits_u <#range, ACC> as SetGet>::GET(arr)
                 }
             }
         )*
@@ -37,5 +38,5 @@ fn u_(bits: usize) -> (proc_macro2::Ident, usize) {
     } else {
         8
     };
-    (quote::format_ident!("u{}", u), u)
+    (format_ident!("u{}", u), u)
 }
