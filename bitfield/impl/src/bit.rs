@@ -51,18 +51,18 @@ pub fn expand(input: syn::Item) -> TokenStream2 {
                 #[repr(C)]
                 #vis struct #ident #impl_generics #where_clause {
                     // 把原字段内容完全替换成 `data: [u8; #size]`
-                    data: [u8; #size >> 3],
+                    data: [u8; Self::SIZE],
                 }
 
                 impl #impl_generics #ident #ty_generics #where_clause{
                     #(
                         #vis fn #getter (&self) -> #sig_ty {
                             // https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=7e8b096e345dc86054814b095c9e3884
-                            <#ty2 as ::bitfield::Specifier>::get::<{Self::#acc_name2}>(&self.data)
+                            <#ty2 as ::bitfield::Specifier>::get::<{Self::#acc_name2}, {Self::SIZE}>(&self.data)
                         }
 
                         #vis fn #setter (&mut self, #id : #sig_ty) {
-                            <#ty2 as ::bitfield::Specifier>::set::<{Self::#acc_name2}>(&mut self.data, #id)
+                            <#ty2 as ::bitfield::Specifier>::set::<{Self::#acc_name2}, {Self::SIZE}>(&mut self.data, #id)
                         }
                     )*
 
@@ -71,6 +71,7 @@ pub fn expand(input: syn::Item) -> TokenStream2 {
                     }
 
                     const WIDTH: [usize; #len] = #width;
+                    const SIZE: usize = #size >> 3 + ((#size) % 8 != 0) as usize;
 
                     #(
                         #[allow(non_upper_case_globals)]

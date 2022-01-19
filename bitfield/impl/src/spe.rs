@@ -45,17 +45,17 @@ pub fn derive_bitfield_specifier_for_enum(input: syn::ItemEnum) -> proc_macro2::
             impl #impl_generics ::bitfield::Specifier for #enum_name #ty_generics #where_clause {
                 type T = #enum_name;
                 const BITS: usize = <#ty_equiv as ::bitfield::Specifier>::BITS;
-                fn set<const ACC: usize>(arr: &mut [u8], num: <Self as Specifier>::T) {
-                    <#ty_equiv as ::bitfield::Specifier>::set::<ACC>(arr, num as #ty_u)
+                fn set<const ACC: usize, const SIZE: usize>(arr: &mut [u8], num: <Self as Specifier>::T) {
+                    <#ty_equiv as ::bitfield::Specifier>::set::<ACC, SIZE>(arr, num as #ty_u)
                 }
-                fn get<const ACC: usize>(arr: &[u8]) -> <Self as Specifier>::T {
+                fn get<const ACC: usize, const SIZE: usize>(arr: &[u8]) -> <Self as Specifier>::T {
                     // https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=bed314b000b163a027a7a5312c94e74b
                     fn __from_integer(num: #ty_u) -> #enum_name {
                         let arr = [#( (#vars as #ty_u, #vars) ),*];
                         // The variant must be found in this case.
                         arr.into_iter().find_map(|(u, e)| if u == num { Some(e) } else { None }).unwrap()
                     }
-                    __from_integer(<#ty_equiv as ::bitfield::Specifier>::get::<ACC>(arr))
+                    __from_integer(<#ty_equiv as ::bitfield::Specifier>::get::<ACC, SIZE>(arr))
                 }
             }
         };

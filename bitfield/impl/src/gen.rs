@@ -14,11 +14,11 @@ pub fn generate() -> proc_macro2::TokenStream {
                 const BITS: usize = #range;
                 type T = ::core::primitive::#u_ident;
 
-                fn set<const ACC: usize>(arr: &mut [u8], num: <Self as Specifier>::T) {
-                    <#bits_u <#range, ACC> as SetGet>::SET(arr, num)
+                fn set<const ACC: usize, const SIZE: usize>(arr: &mut [u8], num: <Self as Specifier>::T) {
+                    <#bits_u <#range, ACC, SIZE> as SetGet>::SET(arr, num)
                 }
-                fn get<const ACC: usize>(arr: &[u8]) -> <Self as Specifier>::T {
-                    <#bits_u <#range, ACC> as SetGet>::GET(arr)
+                fn get<const ACC: usize, const SIZE: usize>(arr: &[u8]) -> <Self as Specifier>::T {
+                    <#bits_u <#range, ACC, SIZE> as SetGet>::GET(arr)
                 }
             }
         )*

@@ -18,8 +18,8 @@ pub trait Specifier {
 
     type T: Sized;
 
-    fn set<const ACC: usize>(arr: &mut [u8], num: <Self as Specifier>::T);
-    fn get<const ACC: usize>(arr: &[u8]) -> <Self as Specifier>::T;
+    fn set<const ACC: usize, const SIZE: usize>(arr: &mut [u8], num: <Self as Specifier>::T);
+    fn get<const ACC: usize, const SIZE: usize>(arr: &[u8]) -> <Self as Specifier>::T;
 }
 
 bitfield_impl::gen! {}
@@ -29,10 +29,12 @@ impl Specifier for bool {
 
     const BITS: usize = 1;
 
-    fn set<const ACC: usize>(arr: &mut [u8], num: bool) { B1::set::<ACC>(arr, num as u8) }
+    fn set<const ACC: usize, const SIZE: usize>(arr: &mut [u8], num: bool) {
+        B1::set::<ACC, SIZE>(arr, num as u8)
+    }
 
-    fn get<const ACC: usize>(arr: &[u8]) -> bool { B1::get::<ACC>(arr).eq(&1) }
+    fn get<const ACC: usize, const SIZE: usize>(arr: &[u8]) -> bool { B1::get::<ACC, SIZE>(arr).eq(&1) }
 }
 
 mod pos;
-pub use pos::{Basic, BitsU16, BitsU32, BitsU64, BitsU8, SetGet};
+pub use pos::{u16::BitsU16, u32::BitsU32, u64::BitsU64, u8::BitsU8, Basic, SetGet};
