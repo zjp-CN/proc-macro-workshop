@@ -10,34 +10,37 @@ pub fn derive_bitfield_specifier_for_enum(input: syn::ItemEnum) -> proc_macro2::
                                "BitfieldSpecifier expected a number of variants which is a power of 2").to_compile_error();
     };
 
-    // __check_bits
-    let var = vars.clone();
-    let max = 1u32 << log2(len);
-
     let ty = quote::format_ident!("B{}", bits);
     let ty_u = quote::format_ident!("__{}", input.ident);
     let ty_equiv = quote::format_ident!("__{}Equiv", input.ident);
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+
+    // 测试 discriminant 必须小于 MAX
+    // 受 [static_assertions::const_assert](https://docs.rs/static_assertions) 启发
+    let max = 1u32 << log2(len);
+    let check_discriminant = vars.clone().map(|v| {
+                                             quote::quote_spanned! {
+                                                 v.span()=>
+                                                     const _ : #ty_u = (#max as #ty_u) - (#v as #ty_u) - 1;
+                                             }
+                                         });
+
     // derive 宏无需返回被定义的 item
     quote::quote! {
-        // 这里的技巧：在 const 中实现 trait，因为 impl
+        // 这里的技巧：在局部作用域中实现 trait，因为 impl
         // 是全局静态的，无关代码是否执行，也无论是否跨作用域。
         // 受 https://users.rust-lang.org/t/conditional-trait-implementations/11850/4 启发。
         //
         // 此外， `const _` 利用了
         // [Unnamed constant 技巧](https://doc.rust-lang.org/nightly/reference/items/constant-items.html#unnamed-constant)
+        // 因为 `{ ... }` 无法单独当作 item 。
         const _ : () = {
+            // 这里的类型别名不会影响源代码
             type #ty_equiv = ::bitfield::#ty;
             type #ty_u = <#ty_equiv as ::bitfield::Specifier>::T;
-            // 测试 discriminant 必须小于 MAX
-            const _ : () = {
-                use #enum_name::*;
-                const MAX: #ty_u = #max as #ty_u;
-                #(
-                    // 受 [static_assertions::const_assert](https://docs.rs/static_assertions) 启发
-                    const _ : #ty_u = 0 - !((#var as #ty_u) < MAX) as #ty_u;
-                )*
-            };
+
+            use #enum_name::*;
+            #( #check_discriminant )*
 
             impl #impl_generics ::bitfield::Specifier for #enum_name #ty_generics #where_clause {
                 type T = #enum_name;
@@ -48,7 +51,6 @@ pub fn derive_bitfield_specifier_for_enum(input: syn::ItemEnum) -> proc_macro2::
                 fn get<const ACC: usize>(arr: &[u8]) -> <Self as Specifier>::T {
                     // https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=bed314b000b163a027a7a5312c94e74b
                     fn __from_integer(num: #ty_u) -> #enum_name {
-                        use #enum_name::*;
                         let arr = [#( (#vars as #ty_u, #vars) ),*];
                         // The variant must be found in this case.
                         arr.into_iter().find_map(|(u, e)| if u == num { Some(e) } else { None }).unwrap()

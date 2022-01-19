@@ -1,10 +1,9 @@
 error: any use of this value will cause an error
- --> tests/09-variant-out-of-range2.rs:9:10
-  |
-9 | #[derive(BitfieldSpecifier)]
-  |          ^^^^^^^^^^^^^^^^^ attempt to compute `0_u8 - 1_u8`, which would overflow
-  |
-  = note: `#[deny(const_err)]` on by default
-  = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
-  = note: for more information, see issue #71800 <https://github.com/rust-lang/rust/issues/71800>
-  = note: this error originates in the derive macro `BitfieldSpecifier` (in Nightly builds, run with -Z macro-backtrace for more info)
+  --> tests/09-variant-out-of-range2.rs:18:5
+   |
+18 |     External,
+   |     ^^^^^^^^ attempt to compute `0_u8 - 1_u8`, which would overflow
+   |
+   = note: `#[deny(const_err)]` on by default
+   = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
+   = note: for more information, see issue #71800 <https://github.com/rust-lang/rust/issues/71800>
