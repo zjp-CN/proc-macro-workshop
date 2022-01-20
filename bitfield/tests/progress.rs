@@ -4,7 +4,6 @@ fn tests() {
     t.pass("tests/01-specifier-types.rs");
     t.pass("tests/02-storage.rs");
     t.pass("tests/03-accessors.rs");
-    t.pass("tests/03-accessors2.rs");
 
     // see bits_pos.rs::test_1_3_4_23
     t.compile_fail("tests/04-multiple-of-8bits.rs");

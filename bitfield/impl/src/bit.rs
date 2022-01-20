@@ -9,7 +9,7 @@ pub fn expand(input: syn::Item) -> TokenStream2 {
                                             generics,
                                             fields: syn::Fields::Named(fields),
                                             .. }) => {
-            let id = fields.named.iter().map(|f| f.ident.as_ref().unwrap());
+            let id = fields.named.iter().filter_map(|f| f.ident.as_ref());
             let getter = id.clone().map(|i| format_ident!("get_{}", i));
             let setter = id.clone().map(|i| format_ident!("set_{}", i));
 
@@ -33,51 +33,47 @@ pub fn expand(input: syn::Item) -> TokenStream2 {
 
             let range = 0..len;
             let acc_name = id.clone().map(|i| format_ident!("acc_{}", i));
-            let acc_name2 = id.clone().map(|i| format_ident!("acc_{}", i));
+            let acc_name2 = acc_name.clone();
             let acc_val = range.map(|n| {
-                                   if n == 0 {
-                                       quote! { 0 }
-                                   } else {
-                                       let idx = 0..n;
-                                       quote! { #( Self::WIDTH[#idx] )+* }
-                                   }
+                                   let idx = 0..n;
+                                   quote! { 0 #( + WIDTH[#idx] )* }
                                });
 
             // related to test 10 and 11
             let check_bits = fields.named.iter().filter_map(check_bits);
 
+            // 把原字段内容完全替换成 `data: [u8; SIZE]`
             quote! {
                 #(#attrs)*
                 #[repr(C)]
                 #vis struct #ident #impl_generics #where_clause {
-                    // 把原字段内容完全替换成 `data: [u8; #size]`
-                    data: [u8; Self::SIZE],
+                    data: [u8; #size >> 3 + ((#size) % 8 != 0) as usize],
                 }
 
-                impl #impl_generics #ident #ty_generics #where_clause{
-                    #(
-                        #vis fn #getter (&self) -> #sig_ty {
-                            // https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=7e8b096e345dc86054814b095c9e3884
-                            <#ty2 as ::bitfield::Specifier>::get::<{Self::#acc_name2}, {Self::SIZE}>(&self.data)
-                        }
-
-                        #vis fn #setter (&mut self, #id : #sig_ty) {
-                            <#ty2 as ::bitfield::Specifier>::set::<{Self::#acc_name2}, {Self::SIZE}>(&mut self.data, #id)
-                        }
-                    )*
-
-                    #vis fn new() -> Self {
-                        Self { data: ::std::default::Default::default() }
-                    }
-
+                const _ : () = {
                     const WIDTH: [usize; #len] = #width;
                     const SIZE: usize = #size >> 3 + ((#size) % 8 != 0) as usize;
-
                     #(
                         #[allow(non_upper_case_globals)]
                         const #acc_name : usize = #acc_val;
                     )*
-                }
+                    impl #impl_generics #ident #ty_generics #where_clause{
+                        #(
+                            #vis fn #getter (&self) -> #sig_ty {
+                                // https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=7e8b096e345dc86054814b095c9e3884
+                                <#ty2 as ::bitfield::Specifier>::get::<#acc_name2, SIZE>(&self.data)
+                            }
+
+                            #vis fn #setter (&mut self, #id : #sig_ty) {
+                                <#ty2 as ::bitfield::Specifier>::set::<#acc_name2, SIZE>(&mut self.data, #id)
+                            }
+                        )*
+
+                        #vis fn new() -> Self {
+                            Self { data: ::std::default::Default::default() }
+                        }
+                    }
+                };
 
                 const _ : usize = 0 - (#total_bits) % 8;
                 #( #check_bits )*

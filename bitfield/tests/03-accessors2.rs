@@ -35,6 +35,7 @@ fn main() {
     assert_eq!(0, bitfield.get_c());
     assert_eq!(0, bitfield.get_d());
 
+    // const 从 impl 中被移除，因此此测试作废
     assert_eq!([1, 3, 4, 24], MyFourBytes::WIDTH);
     assert_eq!(0, MyFourBytes::acc_a);
     assert_eq!(1, MyFourBytes::acc_b);
