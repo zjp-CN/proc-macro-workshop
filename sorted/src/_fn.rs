@@ -58,7 +58,7 @@ impl MatchSorted {
             .into_iter()
             .zip(self.0.iter())
             .try_for_each(|(raw, match_item)| {
-                crate::cmp::finish(raw, |pos| extract_path(&match_item[pos]).unwrap().span())
+                crate::cmp(raw, |pos| extract_path(&match_item[pos]).unwrap().span())
             })
     }
 }

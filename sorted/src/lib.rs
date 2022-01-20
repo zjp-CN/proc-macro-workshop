@@ -16,4 +16,21 @@ pub fn check(_: TokenStream, input: TokenStream) -> TokenStream {
 
 mod _enum;
 mod _fn;
-mod cmp;
+
+fn cmp<F: FnOnce(usize) -> proc_macro2::Span>(raw: Vec<String>, f: F) -> syn::Result<()> {
+    let mut sorted = raw.clone();
+    sorted.sort();
+    let (mut raw, sorted) = (raw.iter(), sorted.iter());
+    sorted.zip(raw.clone())
+          .try_for_each(|(sorted_s, raw_s)| {
+              if sorted_s != raw_s {
+                  let pos = raw.position(|i| i == sorted_s).unwrap(); // 一定能找到
+                  Err((sorted_s, raw_s, pos))
+              } else {
+                  Ok(())
+              }
+          })
+          .map_err(|(sorted_s, raw_s, pos)| {
+              syn::Error::new((f)(pos), format!("{} should sort before {}", sorted_s, raw_s))
+          })
+}
