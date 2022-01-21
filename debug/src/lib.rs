@@ -26,10 +26,9 @@ fn custom_debug(mut input: DeriveInput) -> Result<TokenStream2> {
         let ident_str = ident.to_string();
         let field_idents = named.iter().map(|f| f.ident.as_ref().unwrap());
         let field_idents_str = field_idents.clone().map(|i| i.to_string());
-        let field_rhs =
-            field_idents.zip(named.iter().map(|f| f.attrs.as_slice()))
-                        .map(|(i, a)| attr_debug(a, i, &mut opt).map(|t| t.unwrap_or(quote! {&self.#i})))
-                        .collect::<Result<Vec<_>>>()?;
+        let field_rhs = field_idents.zip(named.iter().map(|f| f.attrs.as_slice()))
+                                    .map(|(i, a)| attr_debug(a, i, &mut opt))
+                                    .collect::<Result<Vec<_>>>()?;
 
         // 在某些泛型关联类型的情况下，放宽 T: Debug 约束
         let mut associated = HashSet::with_capacity(8);
@@ -62,7 +61,7 @@ fn custom_debug(mut input: DeriveInput) -> Result<TokenStream2> {
 }
 
 fn attr_debug(attrs: &[syn::Attribute], ident: &syn::Ident, opt_preds_ident: &mut bound::OptPredsIdent)
-              -> Result<Option<TokenStream2>> {
+              -> Result<TokenStream2> {
     use syn::{Lit, LitStr, Meta, MetaNameValue};
     fn debug(attr: &syn::Attribute, opt_preds_ident: &mut bound::OptPredsIdent) -> Option<Result<LitStr>> {
         match attr.parse_meta() {
@@ -74,8 +73,8 @@ fn attr_debug(attrs: &[syn::Attribute], ident: &syn::Ident, opt_preds_ident: &mu
         }
     }
     match attrs.iter().find_map(|attr| debug(attr, opt_preds_ident)) {
-        None => Ok(None),
-        Some(Ok(fmt)) => Ok(Some(quote! { &::std::format_args!(#fmt, self.#ident) })),
+        None => Ok(quote! { &self.#ident }),
+        Some(Ok(fmt)) => Ok(quote! { &::std::format_args!(#fmt, self.#ident) }),
         Some(Err(err)) => Err(err),
     }
 }
