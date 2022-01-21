@@ -3,8 +3,8 @@ pub fn derive_bitfield_specifier_for_enum(input: syn::ItemEnum) -> proc_macro2::
     let vars = input.variants.iter().map(|v| &v.ident);
 
     let len = input.variants.len() as u32;
-    let bits = if let Some(b) = log2_exact(len) {
-        b
+    let bits = if let Some(bits) = log2_exact(len) {
+        bits
     } else {
         return syn::Error::new(proc_macro2::Span::call_site(),
                                "BitfieldSpecifier expected a number of variants which is a power of 2").to_compile_error();
@@ -15,9 +15,9 @@ pub fn derive_bitfield_specifier_for_enum(input: syn::ItemEnum) -> proc_macro2::
     let ty_equiv = quote::format_ident!("__{}Equiv", input.ident);
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
-    // 测试 discriminant 必须小于 MAX
+    // 测试 discriminant 必须小于 max（成员个数的 2 的幂）
     // 受 [static_assertions::const_assert](https://docs.rs/static_assertions) 启发
-    let max = 1u32 << log2(len);
+    let max = 1u32 << bits;
     let check_discriminant = vars.clone().map(|v| {
                                              quote::quote_spanned! {
                                                  v.span()=>
@@ -26,16 +26,16 @@ pub fn derive_bitfield_specifier_for_enum(input: syn::ItemEnum) -> proc_macro2::
                                          });
 
     // derive 宏无需返回被定义的 item
+    //
+    // 这里的技巧：在局部作用域中实现 trait，因为 impl
+    // 是全局静态的，无关代码是否执行，也无论是否跨作用域。
+    // 受 https://users.rust-lang.org/t/conditional-trait-implementations/11850/4 启发。
+    //
+    // 此外， `const _` 利用了
+    // [Unnamed constant 技巧](https://doc.rust-lang.org/nightly/reference/items/constant-items.html#unnamed-constant)
+    // 因为 `{ ... }` 无法单独当作 item ，从而其内部可视为局部作用域，在里面定义的类型别名不会影响源代码。
     quote::quote! {
-        // 这里的技巧：在局部作用域中实现 trait，因为 impl
-        // 是全局静态的，无关代码是否执行，也无论是否跨作用域。
-        // 受 https://users.rust-lang.org/t/conditional-trait-implementations/11850/4 启发。
-        //
-        // 此外， `const _` 利用了
-        // [Unnamed constant 技巧](https://doc.rust-lang.org/nightly/reference/items/constant-items.html#unnamed-constant)
-        // 因为 `{ ... }` 无法单独当作 item 。
         const _ : () = {
-            // 这里的类型别名不会影响源代码
             type #ty_equiv = ::bitfield::#ty;
             type #ty_u = <#ty_equiv as ::bitfield::Specifier>::T;
 
@@ -51,9 +51,9 @@ pub fn derive_bitfield_specifier_for_enum(input: syn::ItemEnum) -> proc_macro2::
                 fn get<const ACC: usize, const SIZE: usize>(arr: &[u8]) -> <Self as Specifier>::T {
                     // https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=bed314b000b163a027a7a5312c94e74b
                     fn __from_integer(num: #ty_u) -> #enum_name {
-                        let arr = [#( (#vars as #ty_u, #vars) ),*];
                         // The variant must be found in this case.
-                        arr.into_iter().find_map(|(u, e)| if u == num { Some(e) } else { None }).unwrap()
+                        [#( (#vars as #ty_u, #vars) ),*].into_iter()
+                            .find_map(|(u, e)| if u == num { Some(e) } else { None }).unwrap()
                     }
                     __from_integer(<#ty_equiv as ::bitfield::Specifier>::get::<ACC, SIZE>(arr))
                 }
@@ -63,9 +63,12 @@ pub fn derive_bitfield_specifier_for_enum(input: syn::ItemEnum) -> proc_macro2::
 }
 
 // 改进自 https://users.rust-lang.org/t/logarithm-of-integers/8506/5
-// 这个函数可以根据 enum 的成员数自动计算最小 bits
+// 这个函数可以根据 enum 的成员数计算最小 bits（大于或等于成员个数的最小的 2 的对数）
+// 这个函数与测试无关，暂时不需要。
+#[allow(dead_code)]
 const fn log2(n: u32) -> u32 { u32::BITS - n.leading_zeros() - 1 + (n.count_ones() != 1) as u32 }
 
+// 严格的 2 的对数（即成员个数的 2 的对数）
 const fn log2_exact(n: u32) -> Option<u32> {
     if n.count_ones() == 1 {
         Some(u32::BITS - n.leading_zeros() - 1)
