@@ -3,6 +3,8 @@ pub fn derive_bitfield_specifier_for_enum(input: syn::ItemEnum) -> proc_macro2::
     let vars = input.variants.iter().map(|v| &v.ident);
 
     let len = input.variants.len() as u32;
+    // 保证成员个数为 2 的幂（只为了通过测试 08）
+    // 如果实际应用中不必严格保证成员个数为 2 的幂，那么使用 log2 函数。
     let bits = if let Some(bits) = log2_exact(len) {
         bits
     } else {
@@ -15,17 +17,16 @@ pub fn derive_bitfield_specifier_for_enum(input: syn::ItemEnum) -> proc_macro2::
     let ty_equiv = quote::format_ident!("__{}Equiv", input.ident);
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
-    // 测试 discriminant 必须小于 max（成员个数的 2 的幂）
+    // 测试 discriminant 必须小于成员个数
     // 受 [static_assertions::const_assert](https://docs.rs/static_assertions) 启发
-    let max = 1u32 << bits;
     let check_discriminant = vars.clone().map(|v| {
                                              quote::quote_spanned! {
                                                  v.span()=>
-                                                     const _ : #ty_u = (#max as #ty_u) - (#v as #ty_u) - 1;
+                                                     const _ : #ty_u = (#len as #ty_u) - (#v as #ty_u) - 1;
                                              }
                                          });
 
-    // derive 宏无需返回被定义的 item
+    // derive 宏无需返回被定义的 item，因此无需加上 #input
     //
     // 这里的技巧：在局部作用域中实现 trait，因为 impl
     // 是全局静态的，无关代码是否执行，也无论是否跨作用域。
