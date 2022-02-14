@@ -5,8 +5,7 @@ use quote::format_ident;
 pub fn generate() -> proc_macro2::TokenStream {
     let range = 1..=64;
     let ident = range.clone().map(|n| format_ident!("B{}", n));
-    let (u_ident, bits_u): (Vec<_>, Vec<_>) =
-        range.clone().map(u_).map(|(i, u)| (i, format_ident!("BitsU{}", u))).unzip();
+    let (u_ident, bits_u): (Vec<_>, Vec<_>) = range.clone().map(u_).unzip();
     quote::quote! {
         #(
             pub struct #ident;
@@ -26,11 +25,12 @@ pub fn generate() -> proc_macro2::TokenStream {
 }
 
 // 1*8 => u8; 2*8 => u16; 4*8 => u32; 8*8 => u64
-fn u_(bits: usize) -> (proc_macro2::Ident, usize) {
+// 可以通过位运算优化这里的分支判断
+fn u_(bits: usize) -> (proc_macro2::Ident, proc_macro2::Ident) {
     let u = if bits > 64 {
         unreachable!()
     } else if bits > 32 {
-        64
+        64u8
     } else if bits > 16 {
         32
     } else if bits > 8 {
@@ -38,5 +38,5 @@ fn u_(bits: usize) -> (proc_macro2::Ident, usize) {
     } else {
         8
     };
-    (format_ident!("u{}", u), u)
+    (format_ident!("u{}", u), format_ident!("BitsU{}", u))
 }
