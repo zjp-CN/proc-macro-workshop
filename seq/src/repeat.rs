@@ -30,7 +30,7 @@ impl<'c, 'i> SeqToken<'c, 'i> {
 
     fn repeat_and_replace(&mut self, cursor: Cursor) {
         let iter = self.range.clone().map(|lit| crate::replace::replace(cursor, self.ident, lit));
-        self.output.push(quote::quote! { #(#iter)* });
+        self.output.push(TokenStream2::from_iter(iter));
     }
 
     // 查找是否存在 `#()*`
