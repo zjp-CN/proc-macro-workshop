@@ -7,33 +7,36 @@ pub fn replace(mut cursor: Cursor, ident: &Ident, lit: RangeLit) -> TokenStream2
     let mut ts = Vec::with_capacity(32);
     while let Some((token, cur)) = cursor.token_tree() {
         cursor = cur;
-        match token {
+        let t = match token {
             TT::Ident(i) => {
                 if &i == ident {
                     // TODO: 字面值暂时只假设为 usize（由 RangeLit 统一描述），它可以通过所有测试
                     //       真实场景中，需要放宽这个类型（见 https://docs.rs/seq-macro ）
-                    ts.push(Literal::usize_unsuffixed(lit).into());
+                    Literal::usize_unsuffixed(lit).into()
                 } else if let Some((matched, cur)) =
                     search_tidle_ident(i.clone().into(), cur, ident, lit, &mut ts)
                 {
                     cursor = cur;
                     if matched {
-                        ts.push(quote::format_ident!("{}{}", i, lit).into());
+                        quote::format_ident!("{}{}", i, lit).into()
+                    } else {
+                        continue;
                     }
                 } else {
-                    ts.push(i.into());
+                    i.into()
                 }
             }
-            TT::Group(ref g) => match_group(g, &mut ts, ident, lit),
-            t => ts.push(t),
-        }
+            TT::Group(ref g) => match_group(g, ident, lit),
+            t => t,
+        };
+        ts.push(t);
     }
     TokenStream2::from_iter(ts)
 }
 
-fn match_group(g: &Group, ts: &mut Vec<TT>, ident: &Ident, lit: RangeLit) {
+fn match_group(g: &Group, ident: &Ident, lit: RangeLit) -> TT {
     let tokens = replace(TokenBuffer::new2(g.stream()).begin(), ident, lit);
-    ts.push(crate::new_group(g, tokens).into());
+    crate::new_group(g, tokens).into()
 }
 
 type Search<'c> = Option<(bool, Cursor<'c>)>;
@@ -52,8 +55,7 @@ fn search_tidle_ident<'c>(i: TT, cursor: Cursor<'c>, ident: &Ident, lit: RangeLi
             match &token {
                 TT::Ident(id) if id == ident => Some((true, cur)),
                 TT::Group(g) => {
-                    ts.extend([i, tidle]);
-                    match_group(g, ts, ident, lit);
+                    ts.extend([i, tidle, match_group(g, ident, lit)]);
                     Some((false, cur))
                 }
                 _ => {
@@ -71,8 +73,7 @@ fn search_tidle_ident<'c>(i: TT, cursor: Cursor<'c>, ident: &Ident, lit: RangeLi
                            TT::Ident(_) => None,
                            TT::Punct(p) if p.as_char() == '~' => search_ident(i, token, cur, ident, lit, ts),
                            TT::Group(g) => {
-                               ts.push(i);
-                               match_group(g, ts, ident, lit);
+                               ts.extend([i, match_group(g, ident, lit)]);
                                Some((false, cur))
                            }
                            _ => {
