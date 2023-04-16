@@ -26,7 +26,7 @@ impl VisitMut for MatchSorted {
     fn visit_expr_match_mut(&mut self, node: &mut syn::ExprMatch) {
         // 移除 `#[sorted]` 并复制 match 表达式分支的模式部分
         let filter = |attr: &syn::Attribute| {
-            attr.path
+            attr.path()
                 .get_ident()
                 .map(|i| i == &quote::format_ident!("sorted"))
                 .unwrap_or(false)

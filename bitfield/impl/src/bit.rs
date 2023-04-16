@@ -80,9 +80,9 @@ pub fn expand(input: syn::Item) -> TokenStream2 {
 
                     // multiple of 8 bits
                     if (#total_bits) % 8 != 0 { panic!("should be a multiple of 8 bits") }
-                };
 
-                #( #check_bits )*
+                    #( #check_bits )*
+                };
             }
         }
         _ => unimplemented!(),
@@ -90,15 +90,6 @@ pub fn expand(input: syn::Item) -> TokenStream2 {
 }
 
 fn check_bits(f: &syn::Field) -> Option<TokenStream2> {
-    fn meta_bits(attr: &syn::Attribute) -> Option<syn::Lit> {
-        match attr.parse_meta().ok()? {
-            syn::Meta::NameValue(syn::MetaNameValue { lit, path, .. }) if path.is_ident("bits") => {
-                Some(lit)
-            }
-            _ => None,
-        }
-    }
-
     f.attrs.iter().find_map(meta_bits).map(|lit| {
         let e = &f.ty;
         quote::quote_spanned! {
@@ -106,4 +97,25 @@ fn check_bits(f: &syn::Field) -> Option<TokenStream2> {
                 const _ : [(); #lit] = [(); <#e as ::bitfield::Specifier>::BITS];
         }
     })
+}
+
+// parse `#[bits = n]`
+fn meta_bits(attr: &syn::Attribute) -> Option<syn::Lit> {
+    if let syn::Meta::NameValue(meta) = &attr.meta {
+        if meta.path.is_ident("bits") {
+            if let syn::Expr::Lit(lit) = &meta.value {
+                return Some(lit.lit.clone());
+            }
+        }
+    }
+    None
+}
+
+#[test]
+fn attr_bits_n() {
+    use syn::parse::Parser;
+    let attr = syn::Attribute::parse_outer
+        .parse_str("#[bits = 1]")
+        .unwrap();
+    assert!(meta_bits(&attr[0]).is_some());
 }

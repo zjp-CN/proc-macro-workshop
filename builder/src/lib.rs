@@ -174,29 +174,30 @@ enum CheckFieldType {
 }
 
 fn each(attr: &syn::Attribute) -> Result<Option<Ident>> {
-    use syn::{Lit, Meta, MetaList, MetaNameValue, NestedMeta};
-    let meta = attr.parse_meta()?;
-    match &meta {
-        Meta::List(MetaList { path, nested, .. }) if path.is_ident("builder") => {
-            if let Some(NestedMeta::Meta(Meta::NameValue(MetaNameValue { lit, path, .. }))) =
-                nested.first()
-            {
-                match lit {
-                    Lit::Str(s) if path.is_ident("each") => {
-                        Ok(Some(format_ident!("{}", s.value())))
-                    }
-                    _ => Err(Error::new(
-                        meta.span(),
+    use syn::{LitStr, Meta};
+    let mut id = Ok(None);
+    let meta_ = &attr.meta;
+    if let Meta::List(l) = meta_ {
+        if l.path.is_ident("builder") {
+            l.parse_nested_meta(|meta| {
+                if meta.path.is_ident("each") {
+                    let s: LitStr = meta.value()?.parse()?;
+                    id = Ok(Some(format_ident!("{}", s.value())));
+                } else {
+                    id = Err(Error::new(
+                        meta_.span(),
                         "expected `builder(each = \"...\")`",
-                    )),
+                    ));
                 }
-            } else {
-                Err(Error::new(
-                    meta.span(),
+                Ok(())
+            })
+            .unwrap_or_else(|_| {
+                id = Err(Error::new(
+                    meta_.span(),
                     "expected `builder(each = \"...\")`",
                 ))
-            }
+            })
         }
-        _ => Ok(None),
     }
+    id
 }

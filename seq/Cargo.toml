@@ -13,42 +13,9 @@ name = "tests"
 path = "tests/progress.rs"
 
 [dev-dependencies]
-trybuild = { version = "1.0.49", features = ["diff"] }
+trybuild = { version = "1", features = ["diff"] }
 
 [dependencies]
 quote = "1"
-# syn = "1"
-syn = {version = "1", features = ["extra-traits"]}
+syn = {version = "2", features = ["extra-traits"]}
 proc-macro2 = "1"
-
-# [[bin]]
-# path = "./tests/02-parse-body.rs"
-# name = "02"
-#
-# [[bin]]
-# path = "./tests/04-paste-ident.rs"
-# name = "04"
-#
-# [[bin]]
-# path = "./tests/04-paste-ident2.rs"
-# name = "042"
-#
-# [[bin]]
-# path = "./tests/05-repeat-section.rs"
-# name = "05"
-#
-# [[bin]]
-# path = "./tests/05-repeat-section2.rs"
-# name = "052"
-#
-# [[bin]]
-# path = "./tests/06-init-array.rs"
-# name = "06"
-#
-# [[bin]]
-# path = "./tests/07-inclusive-range.rs"
-# name = "07"
-#
-# [[bin]]
-# path = "./tests/09-interaction-with-macrorules.rs"
-# name = "09"
