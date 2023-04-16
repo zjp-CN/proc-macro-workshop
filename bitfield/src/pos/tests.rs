@@ -178,7 +178,10 @@ fn test_1_3_4_55_1() {
     Bit4::SET(&mut arr, u8::MAX);
     Bit55::SET(&mut arr, u64::MAX);
     Bit1_::SET(&mut arr, u8::MAX);
-    assert_eq!(arr.iter().map(|&a| a as usize).sum::<usize>(), arr.len() * u8::MAX as usize);
+    assert_eq!(
+        arr.iter().map(|&a| a as usize).sum::<usize>(),
+        arr.len() * u8::MAX as usize
+    );
 }
 
 // This is on the contrary with test 04-multiple-of-8bits.
@@ -211,5 +214,8 @@ fn test_1_3_4_23() {
     Bit23::SET(&mut arr, u32::MAX);
     assert_eq!(Bit23::GET(&arr), u32::MAX >> (32 - 23));
 
-    assert_eq!(arr.iter().map(|&a| a as usize).sum::<usize>(), arr.len() * u8::MAX as usize);
+    assert_eq!(
+        arr.iter().map(|&a| a as usize).sum::<usize>(),
+        arr.len() * u8::MAX as usize
+    );
 }

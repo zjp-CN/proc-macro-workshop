@@ -43,16 +43,23 @@ impl<const WIDTH: usize, const ACC: usize> BitsPos<WIDTH, ACC> {
     const RANGE_LHS: usize = ACC / 8;
     const RANGE_RHS: usize = (WIDTH + ACC - 1) / 8;
     const RANGE_RHS2: Range = Self::RANGE_RHS..=Self::RANGE_RHS;
-    pub const RANGE_U32: Range =
-        if Self::RANGE_LEN == 4 { Self::RANGE } else { Self::RANGE_LHS..=Self::RANGE_LHS + 3 };
-    const RANGE_U64: Range =
-        if Self::RANGE_LEN == 8 { Self::RANGE } else { Self::RANGE_LHS..=Self::RANGE_LHS + 7 };
+    pub const RANGE_U32: Range = if Self::RANGE_LEN == 4 {
+        Self::RANGE
+    } else {
+        Self::RANGE_LHS..=Self::RANGE_LHS + 3
+    };
+    const RANGE_U64: Range = if Self::RANGE_LEN == 8 {
+        Self::RANGE
+    } else {
+        Self::RANGE_LHS..=Self::RANGE_LHS + 7
+    };
 
     pub fn get_u8(arr: &[u8]) -> u8 {
         if Self::ACROSS_U08 {
             let (num_start, num_end) = Self::get_across(arr);
             let num = (u8::from_ne_bytes(num_start) & Self::LIMIT_U08) >> Self::OFFSET;
-            let num_end = (num_end as u8 & (u8::MAX >> (8 - Self::OFFSET_END_))) << Self::OFFSET_END;
+            let num_end =
+                (num_end as u8 & (u8::MAX >> (8 - Self::OFFSET_END_))) << Self::OFFSET_END;
             num | num_end
         } else {
             let num = u8::from_ne_bytes(Self::get(arr));
@@ -64,7 +71,8 @@ impl<const WIDTH: usize, const ACC: usize> BitsPos<WIDTH, ACC> {
         if Self::ACROSS_U16 {
             let (num_start, num_end) = Self::get_across(arr);
             let num = (u16::from_ne_bytes(num_start) & Self::LIMIT_U16) >> Self::OFFSET;
-            let num_end = (num_end as u16 & (u16::MAX >> (16 - Self::OFFSET_END_))) << Self::OFFSET_END;
+            let num_end =
+                (num_end as u16 & (u16::MAX >> (16 - Self::OFFSET_END_))) << Self::OFFSET_END;
             num | num_end
         } else {
             let num = u16::from_ne_bytes(Self::get(arr));
@@ -76,7 +84,8 @@ impl<const WIDTH: usize, const ACC: usize> BitsPos<WIDTH, ACC> {
         if Self::ACROSS_U32 {
             let (num_start, num_end) = Self::get_across(arr);
             let num = (u32::from_ne_bytes(num_start) & Self::LIMIT_U32) >> Self::OFFSET;
-            let num_end = (num_end as u32 & (u32::MAX >> (32 - Self::OFFSET_END_))) << Self::OFFSET_END;
+            let num_end =
+                (num_end as u32 & (u32::MAX >> (32 - Self::OFFSET_END_))) << Self::OFFSET_END;
             num | num_end
         } else {
             let num = Self::u32(arr).0;
@@ -92,7 +101,11 @@ impl<const WIDTH: usize, const ACC: usize> BitsPos<WIDTH, ACC> {
             tmp[..len].copy_from_slice(&arr[range.clone()]);
             (u32::from_le_bytes(tmp), range, len)
         } else {
-            (u32::from_ne_bytes(arr[Self::RANGE_U32].try_into().expect(Self::ERR)), Self::RANGE_U32, 4)
+            (
+                u32::from_ne_bytes(arr[Self::RANGE_U32].try_into().expect(Self::ERR)),
+                Self::RANGE_U32,
+                4,
+            )
         }
     }
 
@@ -104,7 +117,11 @@ impl<const WIDTH: usize, const ACC: usize> BitsPos<WIDTH, ACC> {
             tmp[..len].copy_from_slice(&arr[range.clone()]);
             (u64::from_le_bytes(tmp), range, len)
         } else {
-            (u64::from_ne_bytes(arr[Self::RANGE_U64].try_into().expect(Self::ERR)), Self::RANGE_U64, 8)
+            (
+                u64::from_ne_bytes(arr[Self::RANGE_U64].try_into().expect(Self::ERR)),
+                Self::RANGE_U64,
+                8,
+            )
         }
     }
 
@@ -112,7 +129,8 @@ impl<const WIDTH: usize, const ACC: usize> BitsPos<WIDTH, ACC> {
         if Self::ACROSS_U64 {
             let (num_start, num_end) = Self::get_across(arr);
             let num = (u64::from_ne_bytes(num_start) & Self::LIMIT_U64) >> Self::OFFSET;
-            let num_end = ((num_end as u64) & (u64::MAX >> (64 - Self::OFFSET_END_))) << Self::OFFSET_END;
+            let num_end =
+                ((num_end as u64) & (u64::MAX >> (64 - Self::OFFSET_END_))) << Self::OFFSET_END;
             num | num_end
         } else {
             // let num = u64::from_ne_bytes(arr[Self::RANGE_U64].try_into().expect(Self::ERR));
@@ -122,14 +140,20 @@ impl<const WIDTH: usize, const ACC: usize> BitsPos<WIDTH, ACC> {
     }
 
     pub fn get<'a, T: TryFrom<&'a [u8]>>(arr: &'a [u8]) -> T
-        where <T as TryFrom<&'a [u8]>>::Error: std::fmt::Debug {
+    where
+        <T as TryFrom<&'a [u8]>>::Error: std::fmt::Debug,
+    {
         T::try_from(&arr[Self::RANGE]).expect(Self::ERR)
     }
 
     pub fn get_across<'a, T: TryFrom<&'a [u8]>>(arr: &'a [u8]) -> (T, u8)
-        where <T as TryFrom<&'a [u8]>>::Error: std::fmt::Debug {
-        (T::try_from(&arr[Self::RANGE_ACROSS]).expect(Self::ERR),
-         u8::from_ne_bytes(arr[Self::RANGE_RHS2].try_into().expect(Self::ERR)))
+    where
+        <T as TryFrom<&'a [u8]>>::Error: std::fmt::Debug,
+    {
+        (
+            T::try_from(&arr[Self::RANGE_ACROSS]).expect(Self::ERR),
+            u8::from_ne_bytes(arr[Self::RANGE_RHS2].try_into().expect(Self::ERR)),
+        )
     }
 
     pub fn across_end(arr: &mut [u8], num_end: u8) {
@@ -394,7 +418,10 @@ fn test_1_3_4_55_1() {
     Bit4::set_u8(&mut arr, u8::MAX);
     Bit55::set_u64(&mut arr, u64::MAX);
     Bit1_::set_u8(&mut arr, u8::MAX);
-    assert_eq!(arr.iter().map(|&a| a as usize).sum::<usize>(), arr.len() * u8::MAX as usize);
+    assert_eq!(
+        arr.iter().map(|&a| a as usize).sum::<usize>(),
+        arr.len() * u8::MAX as usize
+    );
 }
 
 // This is on the contrary with test 04-multiple-of-8bits.
@@ -430,5 +457,8 @@ fn test_1_3_4_23() {
     Bit23::set_u32(&mut arr, u32::MAX);
     assert_eq!(Bit23::get_u32(&arr), u32::MAX >> (32 - 23));
 
-    assert_eq!(arr.iter().map(|&a| a as usize).sum::<usize>(), arr.len() * u8::MAX as usize);
+    assert_eq!(
+        arr.iter().map(|&a| a as usize).sum::<usize>(),
+        arr.len() * u8::MAX as usize
+    );
 }

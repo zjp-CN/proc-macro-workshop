@@ -14,12 +14,20 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
 fn derive_builder(input: DeriveInput) -> Result<TokenStream2> {
     use syn::{Data, DataStruct, Fields, FieldsNamed};
-    if let Data::Struct(DataStruct { fields: Fields::Named(FieldsNamed { named, .. }), .. }) = input.data {
+    if let Data::Struct(DataStruct {
+        fields: Fields::Named(FieldsNamed { named, .. }),
+        ..
+    }) = input.data
+    {
         let (input_name, vis) = (input.ident, input.vis);
         let builder_name = format_ident!("{}Builder", input_name);
-        let fields = named.iter().map(|f| (f.ident.as_ref().expect("field name not found"), &f.ty));
+        let fields = named
+            .iter()
+            .map(|f| (f.ident.as_ref().expect("field name not found"), &f.ty));
         let idents = fields.clone().map(|(ident, _)| ident);
-        let builder_fields = fields.clone().map(|(i, t)| quote! {#i: ::core::option::Option<#t>});
+        let builder_fields = fields
+            .clone()
+            .map(|(i, t)| quote! {#i: ::core::option::Option<#t>});
         let new_builder = fields.clone().map(__new);
 
         let mut each_names = Vec::with_capacity(named.len());
@@ -31,14 +39,14 @@ fn derive_builder(input: DeriveInput) -> Result<TokenStream2> {
             }
         }
 
-        let (more, impl_fns): (Vec<_>, Vec<_>) =
-            fields.clone()
-                  .zip(each_names)
-                  .map(|((ident, ty), each_name)| match each_name {
-                      Some(name) => (&name != ident, impl_fn(&vis, ident, ty, Some(&name))),
-                      None => (false, impl_fn(&vis, ident, ty, None)),
-                  })
-                  .unzip();
+        let (more, impl_fns): (Vec<_>, Vec<_>) = fields
+            .clone()
+            .zip(each_names)
+            .map(|((ident, ty), each_name)| match each_name {
+                Some(name) => (&name != ident, impl_fn(&vis, ident, ty, Some(&name))),
+                None => (false, impl_fn(&vis, ident, ty, None)),
+            })
+            .unzip();
         #[rustfmt::skip]
         let impl_fns_more = fields.zip(more)
             .filter_map(|((ident, ty), m)| { if m { Some(impl_fn(&vis, ident, ty, None)) } else { None } });
@@ -78,7 +86,12 @@ fn derive_builder(input: DeriveInput) -> Result<TokenStream2> {
     }
 }
 
-fn impl_fn(vis: &syn::Visibility, ident: &Ident, mut ty: &Type, each_name: Option<&Ident>) -> TokenStream2 {
+fn impl_fn(
+    vis: &syn::Visibility,
+    ident: &Ident,
+    mut ty: &Type,
+    each_name: Option<&Ident>,
+) -> TokenStream2 {
     let vec_t = each_name.is_some();
     match check(&mut ty, vec_t) {
         CheckFieldType::Option => quote! {
@@ -119,16 +132,23 @@ fn __new((ident, mut ty): (&Ident, &Type)) -> TokenStream2 {
 
 // 把 Option<T> 转化成 T
 fn check(ty: &mut &Type, vec_t: bool) -> CheckFieldType {
-    use syn::{AngleBracketedGenericArguments, GenericArgument, Path, PathArguments, PathSegment, TypePath};
-    if let Type::Path(TypePath { qself: None,
-                                 path: Path { leading_colon, segments }, }) = ty
+    use syn::{
+        AngleBracketedGenericArguments, GenericArgument, Path, PathArguments, PathSegment, TypePath,
+    };
+    if let Type::Path(TypePath {
+        qself: None,
+        path: Path {
+            leading_colon,
+            segments,
+        },
+    }) = ty
     {
         if leading_colon.is_none() && segments.len() == 1 {
-            if let Some(
-                    PathSegment { ident,
-                                  arguments: PathArguments::AngleBracketed(
-                                      AngleBracketedGenericArguments { args, .. }), 
-                }) = segments.first()
+            if let Some(PathSegment {
+                ident,
+                arguments:
+                    PathArguments::AngleBracketed(AngleBracketedGenericArguments { args, .. }),
+            }) = segments.first()
             {
                 if let (1, Some(GenericArgument::Type(t))) = (args.len(), args.first()) {
                     if ident == "Option" {
@@ -158,13 +178,23 @@ fn each(attr: &syn::Attribute) -> Result<Option<Ident>> {
     let meta = attr.parse_meta()?;
     match &meta {
         Meta::List(MetaList { path, nested, .. }) if path.is_ident("builder") => {
-            if let Some(NestedMeta::Meta(Meta::NameValue(MetaNameValue { lit, path, .. }))) = nested.first() {
+            if let Some(NestedMeta::Meta(Meta::NameValue(MetaNameValue { lit, path, .. }))) =
+                nested.first()
+            {
                 match lit {
-                    Lit::Str(s) if path.is_ident("each") => Ok(Some(format_ident!("{}", s.value()))),
-                    _ => Err(Error::new(meta.span(), "expected `builder(each = \"...\")`")),
+                    Lit::Str(s) if path.is_ident("each") => {
+                        Ok(Some(format_ident!("{}", s.value())))
+                    }
+                    _ => Err(Error::new(
+                        meta.span(),
+                        "expected `builder(each = \"...\")`",
+                    )),
                 }
             } else {
-                Err(Error::new(meta.span(), "expected `builder(each = \"...\")`"))
+                Err(Error::new(
+                    meta.span(),
+                    "expected `builder(each = \"...\")`",
+                ))
             }
         }
         _ => Ok(None),

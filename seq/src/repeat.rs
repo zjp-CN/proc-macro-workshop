@@ -6,16 +6,18 @@ use syn::buffer::{Cursor, TokenBuffer};
 pub struct SeqToken<'c, 'i> {
     output: Vec<TokenStream2>,
     cursor: Cursor<'c>,
-    range:  Range,
-    ident:  &'i Ident,
+    range: Range,
+    ident: &'i Ident,
 }
 
 impl<'c, 'i> SeqToken<'c, 'i> {
     pub fn new(cursor: Cursor<'c>, ident: &'i Ident, range: Range) -> Self {
-        SeqToken { output: Vec::with_capacity(32),
-                   cursor,
-                   range,
-                   ident }
+        SeqToken {
+            output: Vec::with_capacity(32),
+            cursor,
+            range,
+            ident,
+        }
     }
 
     // 如果存在 `#()*`，则一边捕获，一边替换和重复；如果不存在 `#()*`，则替换和重复整个块
@@ -29,7 +31,10 @@ impl<'c, 'i> SeqToken<'c, 'i> {
     }
 
     fn repeat_and_replace(&mut self, cursor: Cursor) {
-        let iter = self.range.clone().map(|lit| crate::replace::replace(cursor, self.ident, lit));
+        let iter = self
+            .range
+            .clone()
+            .map(|lit| crate::replace::replace(cursor, self.ident, lit));
         self.output.push(TokenStream2::from_iter(iter));
     }
 
@@ -48,9 +53,15 @@ impl<'c, 'i> SeqToken<'c, 'i> {
                     }
                 }
                 TT::Group(g) => {
-                    if SeqToken::new(TokenBuffer::new2(g.stream()).begin(),
-                                              self.ident,
-                                              self.range.clone()).search_repeat_tag() { return true; }
+                    if SeqToken::new(
+                        TokenBuffer::new2(g.stream()).begin(),
+                        self.ident,
+                        self.range.clone(),
+                    )
+                    .search_repeat_tag()
+                    {
+                        return true;
+                    }
                 }
                 _ => (),
             }
@@ -70,7 +81,10 @@ impl<'c, 'i> SeqToken<'c, 'i> {
                         self.output.push(TokenStream2::from(TT::Punct(p)));
                     }
                 }
-                TT::Group(g) => self.output.push(SeqToken::group(g, self.ident, self.range.clone())),
+                TT::Group(g) => {
+                    self.output
+                        .push(SeqToken::group(g, self.ident, self.range.clone()))
+                }
                 t => self.output.push(t.into()),
             }
         }

@@ -33,9 +33,13 @@ pub trait SetGet {
         p.copy_from_slice(&num_new.to_ne_bytes());
     }
     fn get_across_helper<'a, T: TryFrom<&'a [u8]>>(arr: &'a [u8]) -> (T, u8)
-        where <T as TryFrom<&'a [u8]>>::Error: std::fmt::Debug {
-        (T::try_from(&arr[Self::RANGE_ACROSS]).expect(ERR),
-         u8::from_ne_bytes(arr[Self::RANGE_RHS2].try_into().expect(ERR)))
+    where
+        <T as TryFrom<&'a [u8]>>::Error: std::fmt::Debug,
+    {
+        (
+            T::try_from(&arr[Self::RANGE_ACROSS]).expect(ERR),
+            u8::from_ne_bytes(arr[Self::RANGE_RHS2].try_into().expect(ERR)),
+        )
     }
 }
 

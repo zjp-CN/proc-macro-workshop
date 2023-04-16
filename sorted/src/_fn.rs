@@ -33,7 +33,8 @@ impl VisitMut for MatchSorted {
         };
         if let Some(pos) = node.attrs.iter().position(filter) {
             node.attrs.remove(pos);
-            self.0.push(node.arms.iter().map(|arm| arm.pat.clone()).collect());
+            self.0
+                .push(node.arms.iter().map(|arm| arm.pat.clone()).collect());
         }
 
         visit_mut::visit_expr_match_mut(self, node);
@@ -70,14 +71,19 @@ fn extract_path(pat: &Pat) -> Result<Cow<'_, syn::Path>> {
         Pat::Path(path) => Cow::Borrowed(&path.path),
         Pat::Struct(s) => Cow::Borrowed(&s.path),
         Pat::TupleStruct(s) => Cow::Borrowed(&s.path),
-        Pat::Ident(syn::PatIdent { ident: i, .. }) => Cow::Owned(parse_quote_spanned! { i.span()=> #i }),
+        Pat::Ident(syn::PatIdent { ident: i, .. }) => {
+            Cow::Owned(parse_quote_spanned! { i.span()=> #i })
+        }
         Pat::Wild(w) => {
             // 无法使用 parse_quote_spanned! 把 `_` 转化成 Path，所以需要手动构造
             // Cow::Owned(parse_quote_spanned! { w.underscore_token.span()=> #underscore })
             let underscore: syn::Ident = w.underscore_token.into();
             let mut segments = syn::punctuated::Punctuated::new();
             segments.push(underscore.into());
-            Cow::Owned(syn::Path { leading_colon: None, segments })
+            Cow::Owned(syn::Path {
+                leading_colon: None,
+                segments,
+            })
         }
         p => return Err(Error::new(p.span(), "unsupported by #[sorted]")),
     };
@@ -86,5 +92,11 @@ fn extract_path(pat: &Pat) -> Result<Cow<'_, syn::Path>> {
 
 // 把每个匹配分支中的路径（包括多路径形式的路径）拼接成一个字符串
 fn path_to_string(pat: &Pat) -> Result<String> {
-    extract_path(pat).map(|p| p.segments.iter().map(|s| s.ident.to_string()).collect::<Vec<_>>().join("::"))
+    extract_path(pat).map(|p| {
+        p.segments
+            .iter()
+            .map(|s| s.ident.to_string())
+            .collect::<Vec<_>>()
+            .join("::")
+    })
 }

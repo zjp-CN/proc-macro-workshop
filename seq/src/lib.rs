@@ -10,38 +10,51 @@ pub fn seq(input: TokenStream) -> TokenStream {
 
 #[allow(dead_code)]
 struct Seq {
-    ident:       Ident,
-    in_token:    Token![in],
-    lhs:         LitInt,
-    dot2_token:  Token![..],
-    eq_token:    Option<Token![=]>,
-    rhs:         LitInt,
+    ident: Ident,
+    in_token: Token![in],
+    lhs: LitInt,
+    dot2_token: Token![..],
+    eq_token: Option<Token![=]>,
+    rhs: LitInt,
     brace_token: syn::token::Brace,
-    tokens:      TokenStream2,
+    tokens: TokenStream2,
 }
 
 impl Parse for Seq {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let content;
-        Ok(Seq { ident:       input.parse()?,
-                 in_token:    input.parse()?,
-                 lhs:         input.parse()?,
-                 dot2_token:  input.parse()?,
-                 eq_token:    input.parse().ok(),
-                 rhs:         input.parse()?,
-                 brace_token: syn::braced!(content in input),
-                 tokens:      content.parse()?, })
+        Ok(Seq {
+            ident: input.parse()?,
+            in_token: input.parse()?,
+            lhs: input.parse()?,
+            dot2_token: input.parse()?,
+            eq_token: input.parse().ok(),
+            rhs: input.parse()?,
+            brace_token: syn::braced!(content in input),
+            tokens: content.parse()?,
+        })
     }
 }
 
 impl Seq {
     fn expand(self) -> TokenStream2 {
-        let Seq { ident, lhs, rhs, tokens, eq_token, .. } = self;
+        let Seq {
+            ident,
+            lhs,
+            rhs,
+            tokens,
+            eq_token,
+            ..
+        } = self;
         let buffer = syn::buffer::TokenBuffer::new2(tokens);
         let cursor = buffer.begin();
         match (lhs.base10_parse(), rhs.base10_parse()) {
             (Ok(lhs), Ok(rhs)) => {
-                let range = if eq_token.is_some() { (lhs..=rhs).into() } else { (lhs..rhs).into() };
+                let range = if eq_token.is_some() {
+                    (lhs..=rhs).into()
+                } else {
+                    (lhs..rhs).into()
+                };
                 repeat::SeqToken::new(cursor, &ident, range).token_stream()
             }
             (Err(err), _) => lit_err(err, lhs.span()),

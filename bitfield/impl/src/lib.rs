@@ -11,7 +11,9 @@ mod gen;
 mod spe;
 
 #[proc_macro]
-pub fn gen(_: TokenStream) -> TokenStream { TokenStream::from(gen::generate()) }
+pub fn gen(_: TokenStream) -> TokenStream {
+    TokenStream::from(gen::generate())
+}
 
 #[proc_macro_derive(BitfieldSpecifier)]
 pub fn derive_bitfield_specifier(input: TokenStream) -> TokenStream {

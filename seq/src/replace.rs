@@ -46,11 +46,21 @@ type Search<'c> = Option<(bool, Cursor<'c>)>;
 // - Some((false, cur)) 表示未找到，且把捕获的标记添加到 ts
 // - None 在 search_ident 函数中表示遇到标记流结束（虽然它最终不返回 None）； 在
 //   search_tidle_ident 函数中表示 **i 与此宏功能无关**，或者标记流结束
-fn search_tidle_ident<'c>(i: TT, cursor: Cursor<'c>, ident: &Ident, lit: RangeLit, ts: &mut Vec<TT>)
-                          -> Search<'c> {
-    fn search_ident<'c>(i: TT, tidle: TT, cursor: Cursor<'c>, ident: &Ident, lit: RangeLit,
-                        ts: &mut Vec<TT>)
-                        -> Search<'c> {
+fn search_tidle_ident<'c>(
+    i: TT,
+    cursor: Cursor<'c>,
+    ident: &Ident,
+    lit: RangeLit,
+    ts: &mut Vec<TT>,
+) -> Search<'c> {
+    fn search_ident<'c>(
+        i: TT,
+        tidle: TT,
+        cursor: Cursor<'c>,
+        ident: &Ident,
+        lit: RangeLit,
+        ts: &mut Vec<TT>,
+    ) -> Search<'c> {
         if let Some((token, cur)) = cursor.token_tree() {
             match &token {
                 TT::Ident(id) if id == ident => Some((true, cur)),
@@ -70,15 +80,15 @@ fn search_tidle_ident<'c>(i: TT, cursor: Cursor<'c>, ident: &Ident, lit: RangeLi
         }
     }
     cursor.token_tree().and_then(|(token, cur)| match &token {
-                           TT::Ident(_) => None,
-                           TT::Punct(p) if p.as_char() == '~' => search_ident(i, token, cur, ident, lit, ts),
-                           TT::Group(g) => {
-                               ts.extend([i, match_group(g, ident, lit)]);
-                               Some((false, cur))
-                           }
-                           _ => {
-                               ts.extend([i, token]);
-                               Some((false, cur))
-                           }
-                       })
+        TT::Ident(_) => None,
+        TT::Punct(p) if p.as_char() == '~' => search_ident(i, token, cur, ident, lit, ts),
+        TT::Group(g) => {
+            ts.extend([i, match_group(g, ident, lit)]);
+            Some((false, cur))
+        }
+        _ => {
+            ts.extend([i, token]);
+            Some((false, cur))
+        }
+    })
 }

@@ -8,8 +8,11 @@ pub fn derive_bitfield_specifier_for_enum(input: syn::ItemEnum) -> proc_macro2::
     let bits = if let Some(bits) = log2_exact(len) {
         bits
     } else {
-        return syn::Error::new(proc_macro2::Span::call_site(),
-                               "BitfieldSpecifier expected a number of variants which is a power of 2").to_compile_error();
+        return syn::Error::new(
+            proc_macro2::Span::call_site(),
+            "BitfieldSpecifier expected a number of variants which is a power of 2",
+        )
+        .to_compile_error();
     };
 
     let ty = quote::format_ident!("B{}", bits);
@@ -20,11 +23,11 @@ pub fn derive_bitfield_specifier_for_enum(input: syn::ItemEnum) -> proc_macro2::
     // 测试 discriminant 必须小于成员个数
     // 受 [static_assertions::const_assert](https://docs.rs/static_assertions) 启发
     let check_discriminant = vars.clone().map(|v| {
-                                             quote::quote_spanned! {
-                                                 v.span()=>
-                                                     const _ : #ty_u = (#len as #ty_u) - (#v as #ty_u) - 1;
-                                             }
-                                         });
+        quote::quote_spanned! {
+            v.span()=>
+                const _ : #ty_u = (#len as #ty_u) - (#v as #ty_u) - 1;
+        }
+    });
 
     // derive 宏无需返回被定义的 item，因此无需加上 #input
     //
@@ -67,7 +70,9 @@ pub fn derive_bitfield_specifier_for_enum(input: syn::ItemEnum) -> proc_macro2::
 // 这个函数可以根据 enum 的成员数计算最小 bits（大于或等于成员个数的最小的 2 的对数）
 // 这个函数与测试无关，暂时不需要。
 #[allow(dead_code)]
-const fn log2(n: u32) -> u32 { u32::BITS - n.leading_zeros() - 1 + (n.count_ones() != 1) as u32 }
+const fn log2(n: u32) -> u32 {
+    u32::BITS - n.leading_zeros() - 1 + (n.count_ones() != 1) as u32
+}
 
 // 严格的 2 的对数（即成员个数的 2 的对数）
 const fn log2_exact(n: u32) -> Option<u32> {
@@ -99,7 +104,9 @@ mod tests_log2 {
 
     #[test]
     #[should_panic]
-    fn test_log2_0() { log2(0); }
+    fn test_log2_0() {
+        log2(0);
+    }
 
     #[test]
     fn test_log2_exact() {

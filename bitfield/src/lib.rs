@@ -33,7 +33,9 @@ impl Specifier for bool {
         B1::set::<ACC, SIZE>(arr, num as u8)
     }
 
-    fn get<const ACC: usize, const SIZE: usize>(arr: &[u8]) -> bool { B1::get::<ACC, SIZE>(arr).eq(&1) }
+    fn get<const ACC: usize, const SIZE: usize>(arr: &[u8]) -> bool {
+        B1::get::<ACC, SIZE>(arr).eq(&1)
+    }
 }
 
 mod pos;

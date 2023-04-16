@@ -29,9 +29,13 @@ impl Iterator for Range {
 }
 
 impl From<StdRange> for Range {
-    fn from(r: StdRange) -> Self { Range::Normal(r) }
+    fn from(r: StdRange) -> Self {
+        Range::Normal(r)
+    }
 }
 
 impl From<StdRangeInc> for Range {
-    fn from(r: StdRangeInc) -> Self { Range::Inclusive(r) }
+    fn from(r: StdRangeInc) -> Self {
+        Range::Inclusive(r)
+    }
 }

@@ -3,12 +3,14 @@ use quote::{format_ident, quote};
 
 pub fn expand(input: syn::Item) -> TokenStream2 {
     match input {
-        syn::Item::Struct(syn::ItemStruct { attrs,
-                                            vis,
-                                            ident,
-                                            generics,
-                                            fields: syn::Fields::Named(fields),
-                                            .. }) => {
+        syn::Item::Struct(syn::ItemStruct {
+            attrs,
+            vis,
+            ident,
+            generics,
+            fields: syn::Fields::Named(fields),
+            ..
+        }) => {
             let id = fields.named.iter().filter_map(|f| f.ident.as_ref());
             let getter = id.clone().map(|i| format_ident!("get_{}", i));
             let setter = id.clone().map(|i| format_ident!("set_{}", i));
@@ -27,7 +29,9 @@ pub fn expand(input: syn::Item) -> TokenStream2 {
                 quote! { #( <#ty as ::bitfield::Specifier>::BITS )+* }
             };
 
-            let sig_ty = ty.clone().map(|t| quote! { <#t as ::bitfield::Specifier>::T });
+            let sig_ty = ty
+                .clone()
+                .map(|t| quote! { <#t as ::bitfield::Specifier>::T });
             let size = quote! { #( <#ty as ::bitfield::Specifier>::BITS as usize )+* };
             let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
@@ -35,9 +39,9 @@ pub fn expand(input: syn::Item) -> TokenStream2 {
             let acc_name = id.clone().map(|i| format_ident!("acc_{}", i));
             let acc_name2 = acc_name.clone();
             let acc_val = range.map(|n| {
-                                   let idx = 0..n;
-                                   quote! { 0 #( + WIDTH[#idx] )* }
-                               });
+                let idx = 0..n;
+                quote! { 0 #( + WIDTH[#idx] )* }
+            });
 
             // related to test 10 and 11
             let check_bits = fields.named.iter().filter_map(check_bits);
@@ -86,7 +90,9 @@ pub fn expand(input: syn::Item) -> TokenStream2 {
 fn check_bits(f: &syn::Field) -> Option<TokenStream2> {
     fn meta_bits(attr: &syn::Attribute) -> Option<syn::Lit> {
         match attr.parse_meta().ok()? {
-            syn::Meta::NameValue(syn::MetaNameValue { lit, path, .. }) if path.is_ident("bits") => Some(lit),
+            syn::Meta::NameValue(syn::MetaNameValue { lit, path, .. }) if path.is_ident("bits") => {
+                Some(lit)
+            }
             _ => None,
         }
     }
