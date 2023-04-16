@@ -77,9 +77,11 @@ pub fn expand(input: syn::Item) -> TokenStream2 {
                             Self { data: ::std::default::Default::default() }
                         }
                     }
+
+                    // multiple of 8 bits
+                    if (#total_bits) % 8 != 0 { panic!("should be a multiple of 8 bits") }
                 };
 
-                const _ : usize = 0 - (#total_bits) % 8;
                 #( #check_bits )*
             }
         }
