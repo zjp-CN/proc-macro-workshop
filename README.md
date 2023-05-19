@@ -211,6 +211,10 @@ This project covers:
 
 ### Attribute macro: `#[bitfield]`
 
+> Refer to [modular-bitfield](https://github.com/Robbepop/modular-bitfield) (2020)
+> or this blogpost [no more bit fiddling - introducing bilge](https://hecatia-elegua.github.io/blog/no-more-bit-fiddling/)
+> for inspiration.
+
 This macro provides a mechanism for defining structs in a packed binary
 representation with access to ranges of bits, similar to the language-level
 support for [bit fields in C].
