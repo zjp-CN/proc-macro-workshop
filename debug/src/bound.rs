@@ -36,8 +36,7 @@ mod search {
     };
 
     pub fn debug(meta: Meta) -> OptPredsIdent {
-        let debug: Path = parse_quote!(debug);
-        if meta.path() == &debug {
+        if meta.path().is_ident("debug") {
             search_bound(meta)
         } else {
             None

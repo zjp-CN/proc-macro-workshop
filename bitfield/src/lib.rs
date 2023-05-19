@@ -13,6 +13,11 @@
 pub use bitfield_impl::bitfield;
 pub use bitfield_impl::BitfieldSpecifier;
 
+mod pos;
+pub use pos::{u16::BitsU16, u32::BitsU32, u64::BitsU64, u8::BitsU8, Basic, SetGet};
+
+mod checks;
+
 pub trait Specifier {
     const BITS: usize;
 
@@ -37,6 +42,3 @@ impl Specifier for bool {
         B1::get::<ACC, SIZE>(arr).eq(&1)
     }
 }
-
-mod pos;
-pub use pos::{u16::BitsU16, u32::BitsU32, u64::BitsU64, u8::BitsU8, Basic, SetGet};
